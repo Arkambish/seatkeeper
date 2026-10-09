@@ -137,14 +137,6 @@ export function Field({
   );
 }
 
-export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 px-6 py-16 text-center">
-      <p className="font-display text-xl text-[#111]">{title}</p>
-      {children && <div className="max-w-sm text-sm text-muted-foreground">{children}</div>}
-    </div>
-  );
-}
 
 /** Bordered surface: 1px hairline, crisp radius, no shadow. */
 export function Surface({ className, ...props }: React.ComponentProps<"section">) {

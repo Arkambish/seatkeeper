@@ -3,14 +3,14 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AppError, isUniqueViolation } from "@/lib/errors";
-import type { Location, Page, Workshop, WorkshopDetail } from "@/lib/types";
+import type { Paged, Workshop, WorkshopDetail } from "@/lib/types";
 import type {
   CreateWorkshopInput,
   UpdateWorkshopInput,
   WorkshopFilters,
 } from "@/lib/validation/workshops";
 import { diff, recordAudit } from "./audit";
-import { decodeCursor, encodeCursor } from "./cursor";
+import { paginate } from "./paging";
 import { rebalanceSeats } from "./seats";
 
 // Only the columns the UI renders; `location` is fetched in the same SQL query.
@@ -41,8 +41,7 @@ function toWorkshop(w: WorkshopRow): Workshop {
   };
 }
 
-export async function listWorkshops(f: WorkshopFilters): Promise<Page<Workshop>> {
-  const c = f.cursor ? decodeCursor(f.cursor) : null;
+export async function listWorkshops(f: WorkshopFilters): Promise<Paged<Workshop>> {
   const and: Prisma.WorkshopWhereInput[] = [];
 
   if (f.from) and.push({ startsAt: { gte: new Date(f.from) } });
@@ -63,22 +62,23 @@ export async function listWorkshops(f: WorkshopFilters): Promise<Page<Workshop>>
       ],
     });
   }
-  if (c) and.push({ OR: [{ startsAt: { gt: c.at } }, { startsAt: c.at, id: { gt: c.id } }] });
-
-  const rows = await prisma.workshop.findMany({
-    where: { AND: and },
-    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-    take: f.limit + 1,
-    relationLoadStrategy: "join",
-    select: workshopSelect,
-  });
-
-  const page = rows.slice(0, f.limit);
-  const last = page.at(-1);
-  return {
-    items: page.map(toWorkshop),
-    nextCursor: rows.length > f.limit && last ? encodeCursor(last.startsAt, last.id) : null,
-  };
+  const where = { AND: and };
+  return paginate(
+    f.page,
+    f.pageSize,
+    async ({ skip, take }) =>
+      (
+        await prisma.workshop.findMany({
+          where,
+          orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+          skip,
+          take,
+          relationLoadStrategy: "join",
+          select: workshopSelect,
+        })
+      ).map(toWorkshop),
+    () => prisma.workshop.count({ where }),
+  );
 }
 
 export async function getWorkshop(id: string): Promise<WorkshopDetail> {
@@ -187,8 +187,38 @@ export async function updateWorkshop(id: string, input: UpdateWorkshopInput, act
   return getWorkshop(id);
 }
 
-export async function listLocations(): Promise<Location[]> {
-  return prisma.location.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+
+/**
+ * Hard delete, allowed only for a workshop that never had a registration
+ * (e.g. created by mistake). Once anyone has booked, the records must be kept
+ * (spec: "the record is never deleted"), so the caller is told to cancel the
+ * workshop instead. The audit entry keeps a full snapshot of what was deleted.
+ */
+export async function deleteWorkshop(id: string, actorId: string) {
+  await prisma.$transaction(async (tx) => {
+    const [locked] = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM workshops WHERE id = ${id}::uuid FOR UPDATE`;
+    if (!locked) throw new AppError("NOT_FOUND", "Workshop not found.");
+
+    const [before, registrations] = await Promise.all([
+      tx.workshop.findUniqueOrThrow({ where: { id } }),
+      tx.registration.count({ where: { workshopId: id } }),
+    ]);
+    if (registrations > 0) {
+      throw new AppError(
+        "WORKSHOP_HAS_REGISTRATIONS",
+        `${before.code} has ${registrations} registration record${registrations === 1 ? "" : "s"}, which must be kept. Cancel the workshop instead.`,
+      );
+    }
+    await tx.workshop.delete({ where: { id } });
+    await recordAudit(tx, {
+      actorId,
+      action: "workshop.delete",
+      entityType: "workshop",
+      entityId: id,
+      before: JSON.parse(JSON.stringify(before)) as Record<string, unknown>,
+    });
+  });
 }
 
 function mapWriteError(e: unknown) {

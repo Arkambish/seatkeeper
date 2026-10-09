@@ -41,6 +41,7 @@ export async function apiFetch<T>(
     throw new ApiError(0, "NETWORK", "Can't reach the server. Check your connection and try again.");
   }
 
+  if (res.status === 204) return undefined as T;
   if (res.ok) return (await res.json()) as T;
 
   const body = (await res.json().catch(() => null)) as ApiErrorBody | null;

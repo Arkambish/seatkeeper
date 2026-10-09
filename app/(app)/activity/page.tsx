@@ -13,10 +13,9 @@ export default async function ActivityPage() {
   await requirePermission("users:manage");
   const qc = getServerQueryClient();
   await Promise.all([
-    qc.prefetchInfiniteQuery({
-      queryKey: qk.users.history,
-      queryFn: () => listAudit({ entityType: "user" }),
-      initialPageParam: undefined as string | undefined,
+    qc.prefetchQuery({
+      queryKey: [...qk.users.history, 1, 10],
+      queryFn: () => listAudit({ entityType: "user", page: 1, pageSize: 10 }),
     }),
     qc.prefetchQuery({ queryKey: qk.users.all, queryFn: listUsers }),
   ]);

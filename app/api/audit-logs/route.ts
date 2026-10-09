@@ -3,12 +3,12 @@ import { parseQuery, withAuth } from "@/lib/api/handler";
 import { can } from "@/lib/auth/permissions";
 import { AppError } from "@/lib/errors";
 import { listAudit } from "@/lib/services/audit";
-import { uuid } from "@/lib/validation/common";
+import { pageParams, uuid } from "@/lib/validation/common";
 
 const querySchema = z.object({
   entityType: z.enum(["user", "workshop"]),
   entityId: uuid.optional(),
-  cursor: z.string().max(200).optional(),
+  ...pageParams,
 });
 
 /**

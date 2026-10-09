@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { booleanParam, isoDateTime, uuid, workshopStatusSchema } from "./common";
+import { booleanParam, isoDateTime, pageParams, uuid, workshopStatusSchema } from "./common";
 
 const fields = {
   code: z
@@ -42,7 +42,6 @@ export const workshopFiltersSchema = z.object({
   hasSeats: booleanParam.optional(),
   locationId: uuid.optional(),
   q: z.string().trim().max(100).optional(),
-  cursor: z.string().max(200).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
+  ...pageParams,
 });
 export type WorkshopFilters = z.infer<typeof workshopFiltersSchema>;

@@ -34,7 +34,24 @@ const formSchema = z
 type FormValues = z.input<typeof formSchema>;
 type Parsed = z.output<typeof formSchema>;
 
-function defaults(w?: WorkshopDetail): FormValues {
+/** Same slot one week later, new code to fill in: ideal for weekly classes. */
+function fromTemplate(t: WorkshopDetail): FormValues {
+  const week = 7 * 86_400_000;
+  return {
+    code: "",
+    title: t.title,
+    description: t.description ?? "",
+    instructor: t.instructor,
+    locationId: t.location.id,
+    startsAt: toLocalInput(new Date(new Date(t.startsAt).getTime() + week).toISOString()),
+    endsAt: toLocalInput(new Date(new Date(t.endsAt).getTime() + week).toISOString()),
+    capacity: t.capacity,
+    status: "SCHEDULED",
+  };
+}
+
+function defaults(w?: WorkshopDetail, template?: WorkshopDetail): FormValues {
+  if (template) return fromTemplate(template);
   if (w) {
     return {
       code: w.code,
@@ -69,11 +86,11 @@ const toApi = (v: Parsed) => ({
   endsAt: fromLocalInput(v.endsAt),
 });
 
-export function WorkshopForm({ workshop }: { workshop?: WorkshopDetail }) {
+export function WorkshopForm({ workshop, template }: { workshop?: WorkshopDetail; template?: WorkshopDetail }) {
   const router = useRouter();
   const save = useSaveWorkshop(workshop?.id);
   const { data: locations = [] } = useLocations();
-  const form = useForm<FormValues, unknown, Parsed>({ resolver: zodResolver(formSchema), defaultValues: defaults(workshop) });
+  const form = useForm<FormValues, unknown, Parsed>({ resolver: zodResolver(formSchema), defaultValues: defaults(workshop, template) });
   const { errors, dirtyFields, isDirty } = form.formState;
 
   const onSubmit = form.handleSubmit(async (values) => {

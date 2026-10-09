@@ -1,6 +1,6 @@
 import { fromLocalInput, presetRange } from "@/lib/time";
 import type { WorkshopStatus } from "@/lib/types";
-import { WORKSHOP_STATUSES } from "@/lib/validation/common";
+import { PAGE_SIZES, WORKSHOP_STATUSES } from "@/lib/validation/common";
 
 /**
  * Filters as they live in the URL (shareable, back-button friendly). The same
@@ -18,6 +18,8 @@ export type UiFilters = {
   hasSeats: boolean;
   locationId?: string;
   q?: string;
+  page: number;
+  pageSize: number;
 };
 
 type SearchLike = URLSearchParams | Record<string, string | string[] | undefined>;
@@ -39,6 +41,8 @@ export function parseUiFilters(sp: SearchLike): UiFilters {
     hasSeats: get(sp, "hasSeats") === "true",
     locationId: get(sp, "locationId"),
     q: get(sp, "q")?.slice(0, 100),
+    page: Math.max(1, Math.min(10_000, Number.parseInt(get(sp, "page") ?? "1", 10) || 1)),
+    pageSize: PAGE_SIZES.find((s) => s === Number(get(sp, "size"))) ?? PAGE_SIZES[0],
   };
 }
 
@@ -53,6 +57,8 @@ export function toSearchParams(f: UiFilters): URLSearchParams {
   if (f.hasSeats) sp.set("hasSeats", "true");
   if (f.locationId) sp.set("locationId", f.locationId);
   if (f.q) sp.set("q", f.q);
+  if (f.page > 1) sp.set("page", String(f.page));
+  if (f.pageSize !== PAGE_SIZES[0]) sp.set("size", String(f.pageSize));
   return sp;
 }
 
@@ -75,5 +81,7 @@ export function toApiParams(f: UiFilters): Record<string, string> {
   if (f.hasSeats) p.hasSeats = "true";
   if (f.locationId) p.locationId = f.locationId;
   if (f.q) p.q = f.q;
+  p.page = String(f.page);
+  p.pageSize = String(f.pageSize);
   return p;
 }

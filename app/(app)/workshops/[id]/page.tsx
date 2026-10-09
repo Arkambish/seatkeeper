@@ -7,7 +7,8 @@ import { AppError } from "@/lib/errors";
 import { qk } from "@/lib/query/keys";
 import { dehydrateServer, getServerQueryClient } from "@/lib/query/server";
 import { listRegistrations } from "@/lib/services/registrations";
-import { getWorkshop, listLocations } from "@/lib/services/workshops";
+import { listLocations } from "@/lib/services/locations";
+import { getWorkshop } from "@/lib/services/workshops";
 import { uuid } from "@/lib/validation/common";
 
 export const metadata: Metadata = { title: "Workshop" };

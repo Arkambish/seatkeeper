@@ -42,6 +42,10 @@ export function describeChanges(entry: AuditEntry, lookups: Lookups = {}) {
 export const ACTION_LABELS: Record<string, string> = {
   "workshop.create": "created the workshop",
   "workshop.update": "edited the workshop",
+  "workshop.delete": "deleted the workshop",
+  "location.create": "added a location",
+  "location.update": "renamed a location",
+  "location.delete": "deleted a location",
   "user.create": "created an account",
   "user.update": "updated an account",
   "user.role_change": "changed a role",

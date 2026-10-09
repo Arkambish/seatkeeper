@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarBlank, CaretDown, ClockCounterClockwise, Key, SignOut, UsersThree } from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, ClockCounterClockwise, Key, MapPin, SignOut, UsersThree } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { useState } from "react";
 import {
@@ -30,6 +30,7 @@ export function AppNav() {
 
   const links = [
     can(me.role, "workshops:read") && { href: "/workshops", label: "Workshops", icon: CalendarBlank },
+    can(me.role, "workshops:write") && { href: "/locations", label: "Locations", icon: MapPin },
     can(me.role, "users:manage") && { href: "/users", label: "Accounts", icon: UsersThree },
     can(me.role, "users:manage") && { href: "/activity", label: "Activity", icon: ClockCounterClockwise },
   ].filter(Boolean) as NavLink[];

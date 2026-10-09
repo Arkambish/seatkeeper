@@ -1,19 +1,13 @@
 "use client";
 
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/query/api";
 import { qk } from "@/lib/query/keys";
 import type {
   AuditEntry,
   Location,
   Me,
-  Page,
+  Paged,
   Registration,
   User,
   Workshop,
@@ -26,16 +20,22 @@ const LIVE_MS = 15_000; // seat counts refresh while the page is visible
 
 // ---------------------------------------------------------------- queries
 
+/** Query options for one page of the catalogue (shared by the hook and prefetching). */
+export const workshopsQuery = (params: Record<string, string>) => ({
+  queryKey: qk.workshops.list(params),
+  queryFn: ({ signal }: { signal: AbortSignal }) =>
+    apiFetch<Paged<Workshop>>("/api/workshops", { query: params, signal }),
+});
+
 export function useWorkshops(params: Record<string, string>) {
-  return useInfiniteQuery({
-    queryKey: qk.workshops.list(params),
-    queryFn: ({ pageParam, signal }) =>
-      apiFetch<Page<Workshop>>("/api/workshops", { query: { ...params, cursor: pageParam }, signal }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-    // Keep showing the previous results while a new filter loads (no flash).
-    placeholderData: keepPreviousData,
-  });
+  // Keep showing the previous page while the next one loads (no flash).
+  return useQuery({ ...workshopsQuery(params), placeholderData: keepPreviousData });
+}
+
+/** Warm another page of the catalogue (hovering a page number, or the next page). */
+export function usePrefetchWorkshopsPage() {
+  const qc = useQueryClient();
+  return (params: Record<string, string>) => void qc.prefetchQuery(workshopsQuery(params));
 }
 
 export const workshopDetailQuery = (id: string) => ({
@@ -68,27 +68,31 @@ export const useLocations = () =>
   useQuery({
     queryKey: qk.locations,
     queryFn: ({ signal }) => apiFetch<Location[]>("/api/locations", { signal }),
-    staleTime: Infinity, // three rows that practically never change
+    staleTime: 5 * 60_000, // a handful of rows that rarely change
   });
 
-export const useWorkshopHistory = (id: string) =>
+export const useWorkshopHistory = (id: string, page: number) =>
   useQuery({
-    queryKey: qk.workshops.history(id),
+    queryKey: [...qk.workshops.history(id), page],
     queryFn: ({ signal }) =>
-      apiFetch<Page<AuditEntry>>("/api/audit-logs", { query: { entityType: "workshop", entityId: id }, signal }),
+      apiFetch<Paged<AuditEntry>>("/api/audit-logs", {
+        query: { entityType: "workshop", entityId: id, page, pageSize: 10 },
+        signal,
+      }),
+    placeholderData: keepPreviousData,
   });
 
 export const useUsers = () =>
   useQuery({ queryKey: qk.users.all, queryFn: ({ signal }) => apiFetch<User[]>("/api/users", { signal }) });
 
-export const useAccountHistory = () =>
-  useInfiniteQuery({
-    queryKey: qk.users.history,
-    queryFn: ({ pageParam, signal }) =>
-      apiFetch<Page<AuditEntry>>("/api/audit-logs", { query: { entityType: "user", cursor: pageParam }, signal }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
+export const accountHistoryQuery = (page: number, pageSize: number) => ({
+  queryKey: [...qk.users.history, page, pageSize],
+  queryFn: ({ signal }: { signal: AbortSignal }) =>
+    apiFetch<Paged<AuditEntry>>("/api/audit-logs", { query: { entityType: "user", page, pageSize }, signal }),
+});
+
+export const useAccountHistory = (page: number, pageSize: number) =>
+  useQuery({ ...accountHistoryQuery(page, pageSize), placeholderData: keepPreviousData });
 
 // -------------------------------------------------------------- mutations
 
@@ -266,5 +270,54 @@ export function useUpdateUser() {
       void qc.invalidateQueries({ queryKey: qk.users.all });
       void qc.invalidateQueries({ queryKey: qk.users.history });
     },
+  });
+}
+
+/** Delete a workshop that never had registrations (the API refuses otherwise). */
+export function useDeleteWorkshop() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/workshops/${id}`, { method: "DELETE" }),
+    onSuccess: (_d, id) => {
+      qc.removeQueries({ queryKey: qk.workshops.detail(id) });
+      void qc.invalidateQueries({ queryKey: qk.workshops.lists() });
+      void qc.invalidateQueries({ queryKey: qk.locations });
+    },
+  });
+}
+
+// ------------------------------------------------------------- locations
+
+export function useSaveLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id?: string; name: string }) =>
+      id
+        ? apiFetch<Location>(`/api/locations/${id}`, { method: "PATCH", body: { name } })
+        : apiFetch<Location>("/api/locations", { method: "POST", body: { name } }),
+    onSuccess: (saved) => {
+      qc.setQueryData<Location[]>(qk.locations, (rows = []) =>
+        [...rows.filter((l) => l.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      // Workshop rows show the location name.
+      void qc.invalidateQueries({ queryKey: qk.workshops.all });
+    },
+  });
+}
+
+export function useDeleteLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/locations/${id}`, { method: "DELETE" }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: qk.locations });
+      const prev = qc.getQueryData<Location[]>(qk.locations);
+      qc.setQueryData<Location[]>(qk.locations, (rows = []) => rows.filter((l) => l.id !== id));
+      return { prev };
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(qk.locations, ctx.prev);
+    },
+    onSettled: () => void qc.invalidateQueries({ queryKey: qk.locations }),
   });
 }

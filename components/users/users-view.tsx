@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useMe } from "@/components/app/me-context";
+import { Pagination, useClientPagination } from "@/components/app/pagination";
 import { NativeSelect, PageHeader, Pill, Surface } from "@/components/app/ui";
 import { useUpdateUser, useUsers } from "@/hooks/queries";
 import { formatDate } from "@/lib/time";
@@ -29,6 +30,7 @@ export function UsersView() {
   const update = useUpdateUser();
   const [creating, setCreating] = useState(false);
   const [resetting, setResetting] = useState<User | null>(null);
+  const pager = useClientPagination(users, "all");
 
   const change = (u: User, patch: { role?: Role; isActive?: boolean }, message: string) =>
     update.mutate({ id: u.id, ...patch }, { onSuccess: () => toast.success(message), onError: (e) => toast.error(e.message) });
@@ -59,7 +61,7 @@ export function UsersView() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
+              {pager.pageItems.map((u) => {
                 const self = u.id === me.id;
                 return (
                   <tr key={u.id} className={cn("border-b border-border last:border-0", !u.isActive && "text-muted-foreground")}>
@@ -114,6 +116,16 @@ export function UsersView() {
           </table>
         </div>
       </Surface>
+
+      <Pagination
+        className="mt-5"
+        page={pager.page}
+        pageSize={pager.pageSize}
+        total={pager.total}
+        noun={pager.total === 1 ? "account" : "accounts"}
+        onPageChange={pager.setPage}
+        onPageSizeChange={pager.setPageSize}
+      />
 
       {creating && <CreateUserDialog onClose={() => setCreating(false)} />}
       {resetting && <ResetPasswordDialog user={resetting} onClose={() => setResetting(null)} />}

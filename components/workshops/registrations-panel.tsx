@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Armchair, ClipboardText, Hourglass, MagnifyingGlass, Prohibit } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -14,7 +15,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { useMe } from "@/components/app/me-context";
-import { EmptyState, RegistrationPill, Surface } from "@/components/app/ui";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/app/empty-state";
+import { Pagination, useClientPagination } from "@/components/app/pagination";
+import { RegistrationPill, Surface } from "@/components/app/ui";
 import { useCancelRegistration } from "@/hooks/queries";
 import { formatDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -22,6 +26,31 @@ import type { Registration, RegistrationStatus, WorkshopDetail } from "@/lib/typ
 import { WorkshopHistory } from "./workshop-history";
 
 type Tab = "ACTIVE" | "WAITLISTED" | "CANCELLED" | "ALL" | "CHANGES";
+
+const normalise = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
+const EMPTY: Record<Exclude<Tab, "CHANGES">, { icon: React.ReactElement; title: string; description: string }> = {
+  ACTIVE: {
+    icon: <Armchair size={20} weight="bold" />,
+    title: "No one is registered yet",
+    description: "Use the form above to register the first attendee.",
+  },
+  WAITLISTED: {
+    icon: <Hourglass size={20} weight="bold" />,
+    title: "Nobody is waiting",
+    description: "When the workshop is full, people can join a waitlist and get the next free seat.",
+  },
+  CANCELLED: {
+    icon: <Prohibit size={20} weight="bold" />,
+    title: "No cancellations",
+    description: "Cancelled registrations are kept here with who cancelled them and why.",
+  },
+  ALL: {
+    icon: <ClipboardText size={20} weight="bold" />,
+    title: "No history yet",
+    description: "Every registration and cancellation for this workshop will be listed here.",
+  },
+};
 
 /**
  * All registrations for a workshop come back in one request (a workshop holds
@@ -37,6 +66,7 @@ export function RegistrationsPanel({
   canCancel: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("ACTIVE");
+  const [q, setQ] = useState("");
   const [confirming, setConfirming] = useState<Registration | null>(null);
 
   const count = (s: RegistrationStatus) => registrations.filter((r) => r.status === s).length;
@@ -50,8 +80,21 @@ export function RegistrationsPanel({
 
   // The API returns newest first, with the true queue order as tie-breaker,
   // so reversing the waitlist gives first-in-line at the top.
-  const filtered = tab === "ALL" || tab === "CHANGES" ? registrations : registrations.filter((r) => r.status === tab);
-  const rows = tab === "WAITLISTED" ? [...filtered].reverse() : filtered;
+  const inTab = tab === "ALL" || tab === "CHANGES" ? registrations : registrations.filter((r) => r.status === tab);
+  const ordered = tab === "WAITLISTED" ? [...inTab].reverse() : inTab;
+
+  // Queue position is fixed by the full waitlist, not by what's on screen.
+  const queuePosition = useMemo(() => {
+    const waiting = registrations.filter((r) => r.status === "WAITLISTED").reverse();
+    return new Map(waiting.map((r, i) => [r.id, i + 1]));
+  }, [registrations]);
+
+  // Search by name or email, ignoring case and accents.
+  const needle = normalise(q.trim());
+  const rows = needle
+    ? ordered.filter((r) => normalise(r.attendeeName).includes(needle) || r.attendeeEmail.includes(needle))
+    : ordered;
+  const pager = useClientPagination(rows, `${tab}|${needle}`);
 
   return (
     <section className="mt-10">
@@ -74,12 +117,58 @@ export function RegistrationsPanel({
         ))}
       </div>
 
+      {tab !== "CHANGES" && registrations.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:max-w-xs">
+            <MagnifyingGlass
+              size={15}
+              weight="bold"
+              className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search attendees by name or email"
+              aria-label="Search attendees"
+              className="h-9 bg-white pl-8"
+            />
+          </div>
+          {needle && (
+            <span className="text-sm text-muted-foreground" aria-live="polite">
+              {rows.length} {rows.length === 1 ? "match" : "matches"}
+              {tab !== "ALL" && " in this tab"}
+            </span>
+          )}
+        </div>
+      )}
+
       {tab === "CHANGES" ? (
         <WorkshopHistory workshopId={workshop.id} />
       ) : (
         <Surface className="overflow-hidden">
           {rows.length === 0 ? (
-            <EmptyState title={tab === "WAITLISTED" ? "Nobody is waiting" : tab === "CANCELLED" ? "No cancellations" : "No registrations yet"} />
+            needle ? (
+              <EmptyState
+                size="sm"
+                icon={<MagnifyingGlass size={20} weight="bold" />}
+                title="No one matches your search"
+                description={
+                  <>
+                    {tab === "ALL" ? "No attendee" : "Nobody in this tab"} matches &ldquo;{q.trim()}&rdquo;. Check the
+                    spelling{tab === "ALL" ? "." : ", or look in Full history."}
+                  </>
+                }
+                action={
+                  <Button variant="outline" onClick={() => setQ("")}>
+                    Clear search
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState size="sm" {...EMPTY[tab]} />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-sm">
@@ -94,11 +183,13 @@ export function RegistrationsPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => {
+                  {pager.pageItems.map((r) => {
                     const pending = r.id.startsWith("optimistic-");
                     return (
                       <tr key={r.id} className={cn("border-b border-border last:border-0", pending && "row-pending")}>
-                        {tab === "WAITLISTED" && <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{i + 1}</td>}
+                        {tab === "WAITLISTED" && (
+                          <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{queuePosition.get(r.id) ?? "–"}</td>
+                        )}
                         <td className="px-5 py-3.5">
                           <div className="text-[#111]">{r.attendeeName}</div>
                           <div className="text-xs text-muted-foreground">{r.attendeeEmail}</div>
@@ -139,6 +230,18 @@ export function RegistrationsPanel({
             </div>
           )}
         </Surface>
+      )}
+
+      {tab !== "CHANGES" && (
+        <Pagination
+          className="mt-4"
+          page={pager.page}
+          pageSize={pager.pageSize}
+          total={pager.total}
+          noun={pager.total === 1 ? "registration" : "registrations"}
+          onPageChange={pager.setPage}
+          onPageSizeChange={pager.setPageSize}
+        />
       )}
 
       <CancelDialog

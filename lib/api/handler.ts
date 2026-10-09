@@ -12,6 +12,11 @@ export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: NO_STORE });
 }
 
+/** 204: success with nothing to return (e.g. after a delete). */
+export function noContent() {
+  return new Response(null, { status: 204, headers: NO_STORE });
+}
+
 export function errorResponse(e: unknown) {
   if (e instanceof AppError) {
     return json({ error: { code: e.code, message: e.message, fields: e.fields } }, e.status);

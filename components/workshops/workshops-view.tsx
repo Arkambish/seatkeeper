@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Armchair, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { Armchair, CalendarBlank, MagnifyingGlass, Plus, WarningCircle } from "@phosphor-icons/react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCan } from "@/components/app/me-context";
-import { EmptyState, NativeSelect, PageHeader, SeatMeter, SeatsPill, StatusPill, Surface } from "@/components/app/ui";
-import { useLocations, usePrefetchWorkshop, useWorkshops } from "@/hooks/queries";
+import { EmptyState } from "@/components/app/empty-state";
+import { Pagination } from "@/components/app/pagination";
+import { NativeSelect, PageHeader, SeatMeter, SeatsPill, StatusPill, Surface } from "@/components/app/ui";
+import { useLocations, usePrefetchWorkshop, usePrefetchWorkshopsPage, useWorkshops } from "@/hooks/queries";
+import { WorkshopActions } from "./workshop-actions";
 import { formatDate, formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { parseUiFilters, toApiParams, toSearchParams, type Range, type UiFilters } from "@/lib/workshop-filters";
@@ -33,7 +36,9 @@ function useUrlFilters() {
   const sp = useSearchParams();
   const filters = useMemo(() => parseUiFilters(new URLSearchParams(sp.toString())), [sp]);
   const update = (patch: Partial<UiFilters>) => {
-    const qs = toSearchParams({ ...filters, ...patch }).toString();
+    // Any change other than moving between pages starts again from page 1.
+    const onlyPaging = Object.keys(patch).every((k) => k === "page");
+    const qs = toSearchParams({ ...filters, ...(onlyPaging ? {} : { page: 1 }), ...patch }).toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
   };
   return [filters, update] as const;
@@ -42,8 +47,8 @@ function useUrlFilters() {
 export function WorkshopsView() {
   const [filters, update] = useUrlFilters();
   const params = useMemo(() => toApiParams(filters), [filters]);
-  const { data, isPending, isFetching, isPlaceholderData, hasNextPage, fetchNextPage, isFetchingNextPage, error } =
-    useWorkshops(params);
+  const { data, isPending, isFetching, isPlaceholderData, error } = useWorkshops(params);
+  const prefetchPage = usePrefetchWorkshopsPage();
   const { data: locations = [] } = useLocations();
   const canWrite = useCan("workshops:write");
 
@@ -57,7 +62,20 @@ export function WorkshopsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const rows = data?.pages.flatMap((p) => p.items) ?? [];
+  const rows = data?.items ?? [];
+  const totalPages = data?.totalPages ?? 1;
+
+  // Warm the next page as soon as this one lands, so "Next" is instant.
+  useEffect(() => {
+    if (data && filters.page < data.totalPages) prefetchPage(toApiParams({ ...filters, page: filters.page + 1 }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, filters]);
+
+  // Deleting the last row of the last page: step back a page.
+  useEffect(() => {
+    if (data && !isPlaceholderData && filters.page > totalPages) update({ page: totalPages });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, totalPages]);
   const isQuickView =
     filters.range === "this-week" && filters.hasSeats && !filters.status && !filters.locationId && !filters.q;
   const hasFilters =
@@ -160,7 +178,7 @@ export function WorkshopsView() {
           <Switch checked={filters.hasSeats} onCheckedChange={(v) => update({ hasSeats: v })} aria-label="Only workshops with free seats" />
           Has free seats
         </label>
-        <span aria-live="polite" className={cn("ml-auto font-mono text-xs text-muted-foreground transition-opacity", isFetching && !isFetchingNextPage ? "opacity-100" : "opacity-0")}>
+        <span aria-live="polite" className={cn("ml-auto font-mono text-xs text-muted-foreground transition-opacity", isFetching && !isPending ? "opacity-100" : "opacity-0")}>
           Updating…
         </span>
       </div>
@@ -169,33 +187,61 @@ export function WorkshopsView() {
         {isPending ? (
           <TableSkeleton />
         ) : error ? (
-          <EmptyState title="Couldn't load workshops">{error.message}</EmptyState>
-        ) : rows.length === 0 ? (
-          <EmptyState title="No workshops match">
-            <p>Try a wider date range, or start again from all upcoming workshops.</p>
-            {hasFilters && (
-              <Button variant="outline" className="mt-4" onClick={clearFilters}>
+          <EmptyState
+            tone="error"
+            icon={<WarningCircle size={22} weight="bold" />}
+            title="Couldn't load workshops"
+            description={error.message}
+          />
+        ) : rows.length === 0 && hasFilters ? (
+          <EmptyState
+            icon={<MagnifyingGlass size={22} weight="bold" />}
+            title="No workshops match"
+            description="Try a wider date range or fewer filters."
+            action={
+              <Button variant="outline" onClick={clearFilters}>
                 Clear filters
               </Button>
-            )}
-          </EmptyState>
+            }
+          />
+        ) : rows.length === 0 ? (
+          <EmptyState
+            icon={<CalendarBlank size={22} weight="bold" />}
+            title="No upcoming workshops"
+            description={canWrite ? "Schedule the first one and it will appear here." : "Nothing is scheduled yet."}
+            action={
+              canWrite && (
+                <Link href="/workshops/new" className={buttonVariants()}>
+                  <Plus weight="bold" /> New workshop
+                </Link>
+              )
+            }
+          />
         ) : (
-          <WorkshopTable rows={rows} />
+          <WorkshopTable rows={rows} showActions={canWrite} />
         )}
       </Surface>
 
-      {hasNextPage && (
-        <div className="mt-6 flex justify-center">
-          <Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
-            {isFetchingNextPage ? "Loading…" : "Load more"}
-          </Button>
-        </div>
+      {data && (
+        <Pagination
+          className="mt-5"
+          page={filters.page}
+          pageSize={filters.pageSize}
+          total={data.total}
+          noun={data.total === 1 ? "workshop" : "workshops"}
+          onPageChange={(page) => {
+            update({ page });
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onPageSizeChange={(pageSize) => update({ pageSize })}
+          onPrefetch={(page) => prefetchPage(toApiParams({ ...filters, page }))}
+        />
       )}
     </div>
   );
 }
 
-function WorkshopTable({ rows }: { rows: Workshop[] }) {
+function WorkshopTable({ rows, showActions }: { rows: Workshop[]; showActions: boolean }) {
   const prefetch = usePrefetchWorkshop();
   return (
     <div className="overflow-x-auto">
@@ -207,6 +253,11 @@ function WorkshopTable({ rows }: { rows: Workshop[] }) {
             <th className="px-5 py-3 font-normal">Location</th>
             <th className="w-52 px-5 py-3 font-normal">Seats</th>
             <th className="px-5 py-3 font-normal">Status</th>
+            {showActions && (
+              <th className="w-14 px-3 py-3">
+                <span className="sr-only">Actions</span>
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -242,6 +293,11 @@ function WorkshopTable({ rows }: { rows: Workshop[] }) {
               <td className="px-5 py-4 align-top">
                 <StatusPill status={w.status} />
               </td>
+              {showActions && (
+                <td className="px-3 py-3 text-right align-top">
+                  <WorkshopActions workshop={w} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

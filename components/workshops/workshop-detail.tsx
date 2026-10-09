@@ -11,6 +11,7 @@ import { formatDateTime, formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { RegisterForm } from "./register-form";
 import { RegistrationsPanel } from "./registrations-panel";
+import { WorkshopActions } from "./workshop-actions";
 
 export function WorkshopDetailView({ id }: { id: string }) {
   const { data: w } = useWorkshop(id);
@@ -40,9 +41,12 @@ export function WorkshopDetailView({ id }: { id: string }) {
         description={w.description}
         actions={
           canEdit && (
-            <Link href={`/workshops/${w.id}/edit`} className={buttonVariants({ variant: "outline" })}>
-              <PencilSimple weight="bold" /> Edit workshop
-            </Link>
+            <>
+              <Link href={`/workshops/${w.id}/edit`} className={buttonVariants({ variant: "outline" })}>
+                <PencilSimple weight="bold" /> Edit workshop
+              </Link>
+              <WorkshopActions workshop={w} variant="page" />
+            </>
           )
         }
       />

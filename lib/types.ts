@@ -12,7 +12,7 @@ export type UserRef = { id: string; name: string };
 
 export type Me = { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
 
-export type Location = { id: string; name: string };
+export type Location = { id: string; name: string; workshopCount?: number };
 
 export type Workshop = {
   id: string;
@@ -65,7 +65,7 @@ export type User = {
 export type AuditEntry = {
   id: string;
   action: string;
-  entityType: "user" | "workshop";
+  entityType: "user" | "workshop" | "location";
   entityId: string;
   actor: UserRef;
   before: Record<string, unknown> | null;
@@ -73,7 +73,8 @@ export type AuditEntry = {
   createdAt: string;
 };
 
-export type Page<T> = { items: T[]; nextCursor: string | null };
+/** One page of a server-paginated list. */
+export type Paged<T> = { items: T[]; page: number; pageSize: number; total: number; totalPages: number };
 
 export type ApiErrorBody = {
   error: { code: string; message: string; fields?: Record<string, string[]> };

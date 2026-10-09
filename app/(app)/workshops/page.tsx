@@ -4,7 +4,8 @@ import { WorkshopsView } from "@/components/workshops/workshops-view";
 import { requirePermission } from "@/lib/auth/guard";
 import { qk } from "@/lib/query/keys";
 import { dehydrateServer, getServerQueryClient } from "@/lib/query/server";
-import { listLocations, listWorkshops } from "@/lib/services/workshops";
+import { listLocations } from "@/lib/services/locations";
+import { listWorkshops } from "@/lib/services/workshops";
 import { workshopFiltersSchema } from "@/lib/validation/workshops";
 import { parseUiFilters, toApiParams } from "@/lib/workshop-filters";
 
@@ -21,10 +22,9 @@ export default async function WorkshopsPage({ searchParams }: PageProps<"/worksh
   const qc = getServerQueryClient();
 
   await Promise.all([
-    qc.prefetchInfiniteQuery({
+    qc.prefetchQuery({
       queryKey: qk.workshops.list(params),
       queryFn: () => listWorkshops(workshopFiltersSchema.parse(params)),
-      initialPageParam: undefined as string | undefined,
     }),
     qc.prefetchQuery({ queryKey: qk.locations, queryFn: listLocations }),
   ]);

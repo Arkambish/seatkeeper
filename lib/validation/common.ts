@@ -13,4 +13,10 @@ export const registrationStatusSchema = z.enum(REGISTRATION_STATUSES);
 export const uuid = z.string().uuid("Invalid id");
 export const email = z.string().trim().toLowerCase().email("Enter a valid email address").max(254);
 export const isoDateTime = z.string().datetime({ offset: true, message: "Invalid date/time" });
+export const PAGE_SIZES = [10, 25, 50] as const;
+export const pageParams = {
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+};
+
 export const booleanParam = z.enum(["true", "false"]).transform((v) => v === "true");

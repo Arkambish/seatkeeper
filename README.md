@@ -123,6 +123,15 @@ Node is pinned to 24.x through `engines` in `package.json`.
   - Date presets: Upcoming, This week, Next 7 days, All dates, or a custom range.
   - Filters: status, location, "has free seats" and text search.
   - The filters live in the URL, so a view can be shared or bookmarked.
+- **Full catalogue management for managers:**
+  - **Workshops:** create, edit and duplicate (same slot one week later). Cancel and reopen from a row menu or the workshop page.
+  - **Deleting workshops:** only allowed if nobody ever registered, so booking history is never lost. Otherwise the app offers "Cancel workshop" instead.
+  - **Locations:** add, rename and delete. A location in use can only be renamed.
+- **Pagination:** page numbers, "Showing 1–10 of 23" and a page-size choice on every list.
+  - Workshops and the activity log are paged on the server, and the next page is prefetched so it opens instantly.
+  - Registrations, accounts and locations are paged in the browser, since they're already loaded.
+- **Attendee search** on each workshop, matching name or email across every tab.
+- **Empty states** for every list, each saying what to do next.
 - **Temporary passwords:**
   - Accounts an admin creates, or whose password an admin resets, are flagged.
   - At first sign-in the person must choose their own password in a modal they can't dismiss. The rules are checked live as they type.
@@ -144,13 +153,14 @@ All endpoints return JSON. Errors always have the shape `{ "error": { "code", "m
 | GET | `/api/auth/me` | signed in |
 | GET, POST | `/api/users` | Admin |
 | PATCH | `/api/users/:id` (name, role, isActive, password) | Admin |
-| GET | `/api/workshops?from&to&includePast&status&hasSeats&locationId&q&cursor&limit` | Manager, Staff |
+| GET | `/api/workshops?from&to&includePast&status&hasSeats&locationId&q&page&pageSize` → `{ items, page, pageSize, total, totalPages }` | Manager, Staff |
 | POST | `/api/workshops` | Manager |
-| GET, PATCH | `/api/workshops/:id` | GET: Manager, Staff · PATCH: Manager |
+| GET, PATCH, DELETE | `/api/workshops/:id` (DELETE only if it never had a registration, else 409) | GET: Manager, Staff · PATCH/DELETE: Manager |
 | GET, POST | `/api/workshops/:id/registrations` (POST body: `attendeeName`, `attendeeEmail`, `waitlist?`) | Manager, Staff |
 | POST | `/api/registrations/:id/cancel` (body: `reason?`) | Manager, Staff |
-| GET | `/api/locations` | Manager, Staff |
-| GET | `/api/audit-logs?entityType=user\|workshop&entityId&cursor` | user: Admin · workshop: Manager, Staff |
+| GET | `/api/locations` (with workshop counts) | Manager, Staff |
+| POST · PATCH · DELETE | `/api/locations` · `/api/locations/:id` (DELETE only if unused, else 409) | Manager |
+| GET | `/api/audit-logs?entityType=user\|workshop&entityId&page&pageSize` | user: Admin · workshop: Manager, Staff |
 
 Status codes:
 - `401` when not signed in.
