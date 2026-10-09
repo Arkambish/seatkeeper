@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarBlank, CaretDown, ClockCounterClockwise, SignOut, UsersThree } from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, ClockCounterClockwise, Key, SignOut, UsersThree } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { useState } from "react";
 import {
@@ -17,6 +17,7 @@ import { can } from "@/lib/auth/permissions";
 import { apiFetch } from "@/lib/query/api";
 import { APP_TIMEZONE } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { ChangePasswordDialog } from "./change-password-dialog";
 import { HeaderFrame } from "./header-frame";
 import { useMe } from "./me-context";
 import { RolePill } from "./ui";
@@ -93,6 +94,7 @@ function AccountMenu() {
   const me = useMe();
   const router = useRouter();
   const qc = useQueryClient();
+  const [changing, setChanging] = useState(false);
 
   async function signOut() {
     await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -129,11 +131,18 @@ function AccountMenu() {
           <div className="mt-0.5 truncate text-xs text-muted-foreground">{me.email}</div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={signOut} className="mt-1 px-2.5 py-2">
+        {!me.mustChangePassword && (
+          <DropdownMenuItem onClick={() => setChanging(true)} className="mt-1 px-2.5 py-2">
+            <Key size={16} weight="bold" aria-hidden />
+            Change password
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem variant="destructive" onClick={signOut} className="px-2.5 py-2">
           <SignOut size={16} weight="bold" aria-hidden />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
+      <ChangePasswordDialog open={changing} onClose={() => setChanging(false)} />
     </DropdownMenu>
   );
 }

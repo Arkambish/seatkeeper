@@ -123,6 +123,11 @@ Node is pinned to 24.x through `engines` in `package.json`.
   - Date presets: Upcoming, This week, Next 7 days, All dates, or a custom range.
   - Filters: status, location, "has free seats" and text search.
   - The filters live in the URL, so a view can be shared or bookmarked.
+- **Temporary passwords:**
+  - Accounts an admin creates, or whose password an admin resets, are flagged.
+  - At first sign-in the person must choose their own password in a modal they can't dismiss. The rules are checked live as they type.
+  - Until they do, the API refuses every other request with `403 PASSWORD_CHANGE_REQUIRED`.
+  - Anyone can also change their password from the account menu; other devices are then signed out.
 - **Bonus: audit trail.** Every workshop edit, account creation, role change, deactivation and password reset is recorded as a field-level diff. Managers and staff see it per workshop; Admins see it under **Activity**.
 - **Bonus: waitlist.**
   - When a workshop is full, staff can add people to a waitlist.
@@ -135,6 +140,7 @@ All endpoints return JSON. Errors always have the shape `{ "error": { "code", "m
 | Method | Path | Who |
 |---|---|---|
 | POST | `/api/auth/login` · `/api/auth/logout` | anyone |
+| POST | `/api/auth/password` (`currentPassword`, `newPassword`) | signed in, including on a temporary password |
 | GET | `/api/auth/me` | signed in |
 | GET, POST | `/api/users` | Admin |
 | PATCH | `/api/users/:id` (name, role, isActive, password) | Admin |

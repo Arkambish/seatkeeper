@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app/app-nav";
+import { FirstLoginGate } from "@/components/app/first-login-gate";
 import { HeaderFrame } from "@/components/app/header-frame";
 import { MeProvider } from "@/components/app/me-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,7 +33,8 @@ async function AuthedShell({ children }: { children: React.ReactNode }) {
       </a>
       <AppNav />
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-6 pt-10 pb-24 outline-none">
-        {children}
+        {/* Temporary password? Nothing else renders (or loads) until it's replaced. */}
+        {me.mustChangePassword ? <FirstLoginGate /> : children}
       </main>
     </MeProvider>
   );

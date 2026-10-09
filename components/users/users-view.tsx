@@ -66,6 +66,11 @@ export function UsersView() {
                     <td className="px-5 py-3.5">
                       <div className={cn(u.isActive ? "text-[#111]" : "text-muted-foreground")}>
                         {u.name} {self && <Pill tone="gray" className="ml-1">You</Pill>}
+                        {u.mustChangePassword && (
+                          <Pill tone="yellow" className="ml-1" >
+                            Temporary password
+                          </Pill>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">{u.email}</div>
                     </td>

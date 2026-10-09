@@ -23,6 +23,7 @@ INSERT INTO registrations (…) SELECT … FROM seat RETURNING …;
 ## Other decisions
 - **Access control lives in one place.** `lib/auth/permissions.ts` holds the matrix. `withAuth(permission, handler)` wraps every route: no session → 401, wrong role → 403. Pages use the same matrix to redirect, but the API never trusts the UI.
 - **Database sessions, not JWTs.** The cookie is an httpOnly random token, and only its hash is stored. Each request reads the role fresh in one query, so a role change or deactivation takes effect immediately; those changes also revoke sessions. Logins are rate-limited, bcrypt runs even for unknown emails, and mutations get an Origin check on top of the SameSite cookie.
+- **Temporary passwords.** Accounts an admin creates or resets carry `must_change_password`. `withAuth` refuses everything except `/auth/me` and `/auth/password` until it's cleared. The UI shows a modal that can't be dismissed, and changing the password signs out the person's other devices.
 - **A denormalised `active_count`.** It makes the single-statement claim possible and turns "has free seats" into a cheap column comparison. The cost is keeping it in sync: every write goes through the locked paths, and the tests assert it matches the active rows.
 - **Cancel is `POST /registrations/:id/cancel`, not `DELETE`.** Records are never removed. Workshop and account changes also write a before/after audit entry in the same transaction.
 - **Latency.** Registering is one database round trip. Pages prefetch on the server under the same query keys the client uses, so the first paint has data and makes no API calls; a static shell streams first. Registering and cancelling update the UI optimistically and roll back if refused. Lists use keyset pagination and have no `COUNT(*)`. Seat counts refresh every 15 seconds while visible.
@@ -37,7 +38,7 @@ INSERT INTO registrations (…) SELECT … FROM seat RETURNING …;
 ## Skipped
 - No end-to-end browser test suite. The rules are covered by API tests and were checked by hand in a browser.
 - The login rate limiter is in memory, per instance; multiple instances would need Redis.
-- No self-service password change, invite emails or 2FA. Admins set temporary passwords.
+- No invite emails or 2FA. Admins hand over temporary passwords in person; people replace them at first sign-in.
 - No email notification when someone is promoted from the waitlist; it's shown in the UI only.
 - No attendee search across workshops.
 - Tables scroll sideways on phones rather than becoming cards.

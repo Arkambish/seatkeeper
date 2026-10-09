@@ -10,7 +10,7 @@ export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
 export type UserRef = { id: string; name: string };
 
-export type Me = { id: string; name: string; email: string; role: Role };
+export type Me = { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
 
 export type Location = { id: string; name: string };
 
@@ -57,6 +57,8 @@ export type User = {
   email: string;
   role: Role;
   isActive: boolean;
+  /** Still on the temporary password an admin set. */
+  mustChangePassword: boolean;
   createdAt: string;
 };
 

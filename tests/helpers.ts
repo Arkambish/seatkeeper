@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { hashPassword } from "@/lib/auth/password";
 import { createSession, SESSION_COOKIE, type AuthUser } from "@/lib/auth/session";
 
 export async function resetDb() {
@@ -10,11 +11,20 @@ export async function resetDb() {
 }
 
 let seq = 0;
-export async function makeUser(role: Role): Promise<AuthUser & { token: string }> {
+export async function makeUser(
+  role: Role,
+  opts: { password?: string; mustChangePassword?: boolean } = {},
+): Promise<AuthUser & { token: string }> {
   seq += 1;
   const user = await prisma.user.create({
-    data: { name: `${role} ${seq}`, email: `${role.toLowerCase()}${seq}@test.local`, role, passwordHash: "x" },
-    select: { id: true, name: true, email: true, role: true },
+    data: {
+      name: `${role} ${seq}`,
+      email: `${role.toLowerCase()}${seq}@test.local`,
+      role,
+      passwordHash: opts.password ? await hashPassword(opts.password) : "x",
+      mustChangePassword: opts.mustChangePassword ?? false,
+    },
+    select: { id: true, name: true, email: true, role: true, mustChangePassword: true },
   });
   return { ...user, token: await createSession(user.id) };
 }

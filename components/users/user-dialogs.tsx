@@ -24,7 +24,9 @@ export function CreateUserDialog({ onClose }: { onClose: () => void }) {
   const onSubmit = form.handleSubmit((values) =>
     create.mutate(values, {
       onSuccess: (u) => {
-        toast.success(`Account created for ${u.name}`, { description: "Share the temporary password with them in person." });
+        toast.success(`Account created for ${u.name}`, {
+          description: "Share the temporary password in person. They'll choose their own when they first sign in.",
+        });
         onClose();
       },
       onError: (e) => {
@@ -57,7 +59,12 @@ export function CreateUserDialog({ onClose }: { onClose: () => void }) {
                 <option value="ADMIN">Admin</option>
               </NativeSelect>
             </Field>
-            <Field label="Temporary password" htmlFor="u-password" error={errors.password?.message}>
+            <Field
+              label="Temporary password"
+              htmlFor="u-password"
+              error={errors.password?.message}
+              hint="Changed by them at first sign-in"
+            >
               <Input id="u-password" type="text" autoComplete="new-password" aria-invalid={!!errors.password} {...form.register("password")} />
             </Field>
           </div>
@@ -86,7 +93,9 @@ export function ResetPasswordDialog({ user, onClose }: { user: User; onClose: ()
       { id: user.id, password },
       {
         onSuccess: () => {
-          toast.success(`Password reset for ${user.name}`, { description: "They have been signed out everywhere." });
+          toast.success(`Password reset for ${user.name}`, {
+            description: "They've been signed out and will choose a new password at their next sign-in.",
+          });
           onClose();
         },
         onError: (e) => toast.error(e.message),
@@ -100,7 +109,10 @@ export function ResetPasswordDialog({ user, onClose }: { user: User; onClose: ()
         <form onSubmit={onSubmit} noValidate className="grid gap-4">
           <DialogHeader>
             <DialogTitle className="font-display text-2xl font-normal">Reset password</DialogTitle>
-            <DialogDescription>Set a new temporary password for {user.name}. Their current sessions end immediately.</DialogDescription>
+            <DialogDescription>
+              Set a temporary password for {user.name}. They&apos;re signed out immediately and must choose their own
+              password when they next sign in.
+            </DialogDescription>
           </DialogHeader>
           <Field label="New password" htmlFor="r-password" error={form.formState.errors.password?.message}>
             <Input id="r-password" type="text" autoFocus autoComplete="new-password" {...form.register("password")} />

@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { AppError, isUniqueViolation } from "@/lib/errors";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { deleteOtherSessions } from "@/lib/auth/session";
 import type { User } from "@/lib/types";
+import type { ChangePasswordInput } from "@/lib/validation/password";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validation/users";
 import { diff, recordAudit } from "./audit";
 
@@ -14,6 +16,7 @@ const userSelect = {
   email: true,
   role: true,
   isActive: true,
+  mustChangePassword: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
 
@@ -36,7 +39,8 @@ export async function createUser(input: CreateUserInput, actorId: string): Promi
   try {
     const [user] = await prisma.$transaction([
       prisma.user.create({
-        data: { id, name: input.name, email: input.email, role: input.role, passwordHash },
+        // The admin-chosen password is temporary: the person replaces it on first sign-in.
+        data: { id, name: input.name, email: input.email, role: input.role, passwordHash, mustChangePassword: true },
         select: userSelect,
       }),
       prisma.auditLog.create({
@@ -99,7 +103,7 @@ export async function updateUser(id: string, input: UpdateUserInput, actorId: st
 
     const user = await tx.user.update({
       where: { id },
-      data: { ...profile, ...(passwordHash && { passwordHash }) },
+      data: { ...profile, ...(passwordHash && { passwordHash, mustChangePassword: true }) },
       select: userSelect,
     });
 
@@ -124,4 +128,26 @@ export async function updateUser(id: string, input: UpdateUserInput, actorId: st
     }
     return toUser(user);
   });
+}
+
+/**
+ * A signed-in user replaces their own password (required after an admin
+ * creates or resets the account). The current password must match. Every
+ * other session is signed out, but the one making the request stays signed in.
+ */
+export async function changeOwnPassword(userId: string, input: ChangePasswordInput, sessionToken: string) {
+  const current = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+  if (!current || !(await verifyPassword(input.currentPassword, current.passwordHash))) {
+    throw new AppError("WRONG_PASSWORD", "Your current password is incorrect.", {
+      currentPassword: ["This doesn't match your current password"],
+    });
+  }
+  const passwordHash = await hashPassword(input.newPassword);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: false } }),
+    deleteOtherSessions(prisma, userId, sessionToken),
+    prisma.auditLog.create({
+      data: { actorId: userId, action: "user.password_change", entityType: "user", entityId: userId },
+    }),
+  ]);
 }

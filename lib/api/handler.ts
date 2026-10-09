@@ -55,19 +55,25 @@ type RouteCtx<P> = { params: Promise<P> };
 /**
  * Wraps every API route. Access control lives here, on the server, not in the UI:
  *  - 401 when there is no valid session
- *  - 403 when the user's role lacks `permission`
+ *  - 403 when the user's role lacks `permission`, or while they still have
+ *    an admin-issued temporary password (only /auth/me and /auth/password work)
  *  - 400 for validation errors, 404/409 for domain errors (see AppError)
  * Handlers return plain data (sent as 200 JSON) or a Response for other statuses.
  */
 export function withAuth<P extends Params = Params>(
   permission: Permission | "authenticated",
   handler: Handler<P, AuthUser>,
+  opts: { allowPendingPasswordChange?: boolean } = {},
 ) {
   return async (req: NextRequest, ctx: RouteCtx<P>) => {
     try {
       assertSameOrigin(req);
       const user = await getUserFromToken(req.cookies.get(SESSION_COOKIE)?.value);
       if (!user) throw new AppError("UNAUTHENTICATED", "Please sign in.");
+      // A temporary password (set by an admin) unlocks nothing but changing it.
+      if (user.mustChangePassword && !opts.allowPendingPasswordChange) {
+        throw new AppError("PASSWORD_CHANGE_REQUIRED", "Please choose a new password before continuing.");
+      }
       if (permission !== "authenticated" && !can(user.role, permission)) {
         throw new AppError("FORBIDDEN", "You don't have permission to do that.");
       }

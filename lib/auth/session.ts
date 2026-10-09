@@ -2,14 +2,14 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import type { Role } from "@prisma/client";
+import type { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 
 export const SESSION_COOKIE = "wr_session";
 const TOUCH_INTERVAL_MS = 60 * 60 * 1000; // refresh sliding expiry at most hourly
 
-export type AuthUser = { id: string; name: string; email: string; role: Role };
+export type AuthUser = { id: string; name: string; email: string; role: Role; mustChangePassword: boolean };
 
 const ttlMs = () => env.SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -41,6 +41,11 @@ export async function deleteSession(token: string) {
   await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
 }
 
+/** Signs a user out everywhere except the session making the request. */
+export function deleteOtherSessions(tx: Prisma.TransactionClient, userId: string, keepToken: string) {
+  return tx.session.deleteMany({ where: { userId, tokenHash: { not: hashToken(keepToken) } } });
+}
+
 /**
  * Resolves a raw session token to its user in ONE indexed query (session +
  * user joined). The role is read fresh from the DB on every request, so a
@@ -56,7 +61,7 @@ export async function getUserFromToken(token: string | undefined): Promise<AuthU
       id: true,
       expiresAt: true,
       lastSeenAt: true,
-      user: { select: { id: true, name: true, email: true, role: true, isActive: true } },
+      user: { select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true } },
     },
   });
 

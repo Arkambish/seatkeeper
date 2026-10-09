@@ -48,4 +48,5 @@ export const ACTION_LABELS: Record<string, string> = {
   "user.activate": "re-activated an account",
   "user.deactivate": "deactivated an account",
   "user.password_reset": "reset a password",
+  "user.password_change": "changed their own password",
 };

@@ -18,7 +18,15 @@ export const POST = publicRoute(async ({ req }) => {
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, name: true, email: true, role: true, isActive: true, passwordHash: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      passwordHash: true,
+      mustChangePassword: true,
+    },
   });
   // Always run bcrypt (even for unknown emails) and return one generic message.
   const valid = await verifyPassword(password, user?.passwordHash);
@@ -29,7 +37,13 @@ export const POST = publicRoute(async ({ req }) => {
 
   const token = await createSession(user.id);
   const res = json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: user.mustChangePassword,
+    },
     redirectTo: homePathFor(user.role),
   });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
