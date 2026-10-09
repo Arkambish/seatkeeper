@@ -1,36 +1,173 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Seatkeeper
 
-## Getting Started
+Seatkeeper is a full-stack workshop registration app for a community training centre. Front-desk staff use it to register attendees for workshops that have a limited number of seats. It is built with Next.js (App Router) and PostgreSQL, using Prisma and TanStack Query.
 
-First, run the development server:
+The core rule: **a workshop can never hold more active registrations than its capacity, even when several people book the last seat at the same moment.**
+
+See [DESIGN.md](DESIGN.md) for design decisions, trade-offs and how over-registration is prevented.
+
+---
+
+## Quick start
+
+**Prerequisites:**
+- Node.js 20.9 or newer
+- One PostgreSQL database: a cloud one, a local install, or Docker
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 1. Install dependencies (this also generates the Prisma client)
+npm install
+
+# 2. Configure the environment
+cp .env.example .env
+#    then edit DATABASE_URL / DIRECT_URL (see "Database options" below)
+
+# 3. Create the tables and load the sample data
+npm run db:setup
+
+# 4. Run the app
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Sign-in accounts (development only)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Role | Email | Password |
+|---|---|---|
+| **Admin** (the seeded first account) | `admin@example.com` | `Admin123!` |
+| Manager (demo) | `manager@example.com` | `Manager123!` |
+| Staff (demo) | `staff@example.com` | `Staff123!` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In development, the login page also has one-click buttons for these accounts. The brief only requires the Admin. The Manager and Staff accounts are seeded so you can try every role straight away. Otherwise, sign in as Admin and create them under **Accounts**.
 
-## Learn More
+The seed adds:
+- 3 locations.
+- 8 workshops spread across this week and next. One is full and has a waitlist, one has its last seat free, one is cancelled and one is already completed.
+- Active and cancelled registrations, so the history is populated.
 
-To learn more about Next.js, take a look at the following resources:
+You can re-run the seed safely: `npm run db:seed`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Database options
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Cloud Postgres (Neon, Supabase, …):**
+  - Set `DATABASE_URL` to the pooled URL. Neon's pooler works as is with Prisma 6. Older PgBouncer setups may need `&pgbouncer=true`.
+  - Set `DIRECT_URL` to the direct URL, which migrations use.
+  - For tests, set `DATABASE_URL_TEST` to the same database with `&schema=test`.
+- **Docker:** `docker compose up -d` starts Postgres 17 on port 5433, with an app database and a test database. The defaults in `.env.example` already point at it.
+- **Local Postgres:**
+  - `createdb workshop_registration && createdb workshop_registration_test`.
+  - Point the three URLs at them.
 
-## Deploy on Vercel
+When you deploy, run the app in the same region as the database. For example, a Neon database in `ap-southeast-1` pairs with Vercel region `sin1`. Each query is then about 1 ms instead of a round trip across continents.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Set `NEXT_PUBLIC_APP_TIMEZONE` to the centre's timezone, for example `Europe/London`. It controls how times are shown and what "this week" means. Changing it requires a rebuild.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Deploy to Vercel
+
+The repo is ready to import as-is. `vercel.json` pins functions to `sin1` (Singapore), next to the Neon database.
+
+1. Push to GitHub, then **Add New Project** in Vercel and import the repo. The framework is detected automatically.
+2. Under **Settings → Environment Variables**, add:
+
+   | Variable | Value |
+   |---|---|
+   | `DATABASE_URL` | Neon **pooled** URL (`…-pooler…`) |
+   | `DIRECT_URL` | Neon **direct** URL (no `-pooler`), used for migrations |
+   | `NEXT_PUBLIC_APP_URL` | The deployment URL, e.g. `https://seatkeeper.vercel.app` |
+   | `NEXT_PUBLIC_APP_TIMEZONE` | The centre's timezone, e.g. `Asia/Colombo` |
+   | `NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS` | `true` to show the demo-login buttons for reviewers (optional) |
+
+3. Deploy. The build (`npm run vercel-build`):
+   - generates the Prisma client
+   - runs `prisma migrate deploy` on **production** deploys only, so preview deploys never touch the schema
+   - builds Next.js
+4. Seed once, from your machine, with the production URLs in `.env`: `npm run db:seed`.
+
+Node is pinned to 24.x through `engines` in `package.json`.
+
+---
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server |
+| `npm run build && npm start` | Production build and server |
+| `npm run vercel-build` | What Vercel runs: generate, migrate (production only), build |
+| `npm run db:setup` | Apply migrations and seed |
+| `npm run db:migrate` / `npm run db:seed` | Each step on its own |
+| `npm test` | Concurrency and access-control tests against `DATABASE_URL_TEST` |
+| `npm run hammer` | Live demo against a running server: 50 simultaneous HTTP registrations for 10 seats. Exactly 10 succeed. |
+| `npm run lint` / `npm run typecheck` | Static checks |
+
+---
+
+## What's in the box
+
+**Access control** (enforced by the API; the UI only hides what the API would refuse anyway)
+
+| | Admin | Manager | Staff |
+|---|:-:|:-:|:-:|
+| Create accounts and set roles | ✓ | | |
+| Add and edit workshops | | ✓ | |
+| Register and cancel attendees | | ✓ | ✓ |
+| View workshops, registrations and history | | ✓ | ✓ |
+
+**Features:**
+- **Workshops:** code, title, instructor, location, start/end, capacity and status, plus description and who created or last edited it.
+- **Registrations:**
+  - An attendee is a name and an email, with no account.
+  - Cancelling never deletes anything. Each row keeps who registered it and when, who cancelled it, when and why, and when it was promoted from the waitlist.
+- **Finding workshops:**
+  - Date presets: Upcoming, This week, Next 7 days, All dates, or a custom range.
+  - Filters: status, location, "has free seats" and text search.
+  - The filters live in the URL, so a view can be shared or bookmarked.
+- **Bonus: audit trail.** Every workshop edit, account creation, role change, deactivation and password reset is recorded as a field-level diff. Managers and staff see it per workshop; Admins see it under **Activity**.
+- **Bonus: waitlist.**
+  - When a workshop is full, staff can add people to a waitlist.
+  - A cancellation, or an increase in capacity, gives the seat to the first person waiting. This happens in the same database transaction, so nobody can jump the queue.
+
+## API
+
+All endpoints return JSON. Errors always have the shape `{ "error": { "code", "message", "fields?" } }`.
+
+| Method | Path | Who |
+|---|---|---|
+| POST | `/api/auth/login` · `/api/auth/logout` | anyone |
+| GET | `/api/auth/me` | signed in |
+| GET, POST | `/api/users` | Admin |
+| PATCH | `/api/users/:id` (name, role, isActive, password) | Admin |
+| GET | `/api/workshops?from&to&includePast&status&hasSeats&locationId&q&cursor&limit` | Manager, Staff |
+| POST | `/api/workshops` | Manager |
+| GET, PATCH | `/api/workshops/:id` | GET: Manager, Staff · PATCH: Manager |
+| GET, POST | `/api/workshops/:id/registrations` (POST body: `attendeeName`, `attendeeEmail`, `waitlist?`) | Manager, Staff |
+| POST | `/api/registrations/:id/cancel` (body: `reason?`) | Manager, Staff |
+| GET | `/api/locations` | Manager, Staff |
+| GET | `/api/audit-logs?entityType=user\|workshop&entityId&cursor` | user: Admin · workshop: Manager, Staff |
+
+Status codes:
+- `401` when not signed in.
+- `403` when the role isn't allowed.
+- `400` for validation errors, with field messages.
+- `409` for business-rule conflicts: `WORKSHOP_FULL`, `ALREADY_REGISTERED`, `CAPACITY_BELOW_REGISTERED`, and similar.
+
+## Project layout
+
+```
+app/
+  api/…                 REST route handlers (thin: validate → service → JSON)
+  (app)/…               signed-in pages; each prefetches its data on the server
+  login/                sign-in page
+components/             UI (workshops/, users/, app/ shared, ui/ shadcn primitives)
+hooks/queries.ts        TanStack Query hooks, including optimistic mutations
+lib/
+  api/handler.ts        withAuth(): session → permission → validation → error mapping
+  auth/                 sessions, permission matrix, password hashing, page guard
+  services/             business logic and SQL (registrations.ts holds the capacity rule)
+  validation/           zod schemas shared by the API and the forms
+  query/                query keys, fetch wrapper, QueryClient setup
+prisma/                 schema, migration (with CHECK constraints) and seed
+tests/                  concurrency and RBAC tests (Vitest, real Postgres)
+scripts/hammer.ts       live HTTP concurrency demo
+```

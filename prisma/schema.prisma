@@ -1,0 +1,140 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+enum WorkshopStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  ACTIVE
+  CANCELLED
+  WAITLISTED
+}
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions               Session[]
+  workshopsCreated       Workshop[]     @relation("WorkshopCreatedBy")
+  workshopsUpdated       Workshop[]     @relation("WorkshopUpdatedBy")
+  registrationsCreated   Registration[] @relation("RegisteredBy")
+  registrationsCancelled Registration[] @relation("CancelledBy")
+  auditLogs              AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  userId     String   @map("user_id") @db.Uuid
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(3)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Location {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String     @unique
+  workshops Workshop[]
+
+  @@map("locations")
+}
+
+model Workshop {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String         @unique
+  title       String
+  description String?
+  instructor  String
+  locationId  String         @map("location_id") @db.Uuid
+  startsAt    DateTime       @map("starts_at") @db.Timestamptz(3)
+  endsAt      DateTime       @map("ends_at") @db.Timestamptz(3)
+  capacity    Int
+  /// Denormalised count of ACTIVE registrations. Guarded by CHECK (0 <= active_count <= capacity).
+  activeCount Int            @default(0) @map("active_count")
+  status      WorkshopStatus @default(SCHEDULED)
+  createdById String         @map("created_by_id") @db.Uuid
+  updatedById String         @map("updated_by_id") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  location      Location       @relation(fields: [locationId], references: [id])
+  createdBy     User           @relation("WorkshopCreatedBy", fields: [createdById], references: [id])
+  updatedBy     User           @relation("WorkshopUpdatedBy", fields: [updatedById], references: [id])
+  registrations Registration[]
+
+  @@index([startsAt, id])
+  @@index([status, startsAt])
+  @@map("workshops")
+}
+
+model Registration {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workshopId     String             @map("workshop_id") @db.Uuid
+  attendeeName   String             @map("attendee_name")
+  attendeeEmail  String             @map("attendee_email")
+  status         RegistrationStatus
+  registeredById String             @map("registered_by_id") @db.Uuid
+  registeredAt   DateTime           @default(now()) @map("registered_at") @db.Timestamptz(3)
+  cancelledById  String?            @map("cancelled_by_id") @db.Uuid
+  cancelledAt    DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  cancelReason   String?            @map("cancel_reason")
+  promotedAt     DateTime?          @map("promoted_at") @db.Timestamptz(3)
+  /// Insertion order from a sequence. The waitlist queues by this, because two
+  /// people can join in the same millisecond (registered_at has ms precision).
+  seq            BigInt             @default(autoincrement())
+
+  workshop     Workshop @relation(fields: [workshopId], references: [id])
+  registeredBy User     @relation("RegisteredBy", fields: [registeredById], references: [id])
+  cancelledBy  User?    @relation("CancelledBy", fields: [cancelledById], references: [id])
+
+  @@index([workshopId, status, registeredAt])
+  @@index([workshopId, status, seq])
+  @@map("registrations")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String   @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, createdAt(sort: Desc), id])
+  @@index([entityId, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

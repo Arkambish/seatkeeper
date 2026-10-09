@@ -1,26 +1,169 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-geist-mono), "SF Mono", monospace;
+  --font-heading: var(--font-serif), Georgia, serif;
+  --font-serif: var(--font-serif), Georgia, serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Warm monochrome. Colour is reserved for meaning (seat/status pills). */
+:root {
+  --background: #fbfbfa;
+  --foreground: #2f3437;
+  --card: #ffffff;
+  --card-foreground: #2f3437;
+  --popover: #ffffff;
+  --popover-foreground: #2f3437;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f2ef;
+  --secondary-foreground: #2f3437;
+  --muted: #f3f2ef;
+  --muted-foreground: #787774;
+  --accent: #f3f2ef;
+  --accent-foreground: #111111;
+  --destructive: #9f2f2d;
+  --border: #eaeaea;
+  --input: #e3e2df;
+  --ring: #b9b8b4;
+  --chart-1: #eaeaea;
+  --chart-2: #787774;
+  --chart-3: #5f5e5b;
+  --chart-4: #3f3e3c;
+  --chart-5: #111111;
+  --radius: 0.5rem;
+  --sidebar: #f7f6f3;
+  --sidebar-foreground: #2f3437;
+  --sidebar-primary: #111111;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efeeeb;
+  --sidebar-accent-foreground: #111111;
+  --sidebar-border: #eaeaea;
+  --sidebar-ring: #b9b8b4;
+
+  /* Muted pastels: semantic accents only */
+  --pastel-red: #fdebec;
+  --pastel-red-fg: #9f2f2d;
+  --pastel-blue: #e1f3fe;
+  --pastel-blue-fg: #1f6c9f;
+  --pastel-green: #edf3ec;
+  --pastel-green-fg: #346538;
+  --pastel-yellow: #fbf3db;
+  --pastel-yellow-fg: #956400;
+  --pastel-gray: #f1f1ef;
+  --pastel-gray-fg: #5f5e5b;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+@layer base {
+  body {
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--pastel-blue);
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Editorial serif for page titles: tight tracking and leading. */
+.font-display {
+  font-family: var(--font-serif), Georgia, serif;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+/* Press feedback on everything pressable: tells the user the UI heard them. */
+.press {
+  transition: transform 160ms var(--ease-out), background-color 160ms ease, color 160ms ease;
+}
+.press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Gentle entry for content that arrives (not for frequent interactions). */
+.fade-in {
+  animation: fade-in 240ms var(--ease-out) both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Row that was just added optimistically. */
+.row-pending {
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .press:active:not(:disabled) {
+    transform: none;
+  }
+  .fade-in {
+    animation: none;
+  }
 }
