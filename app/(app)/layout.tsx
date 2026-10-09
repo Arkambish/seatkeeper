@@ -32,7 +32,7 @@ async function AuthedShell({ children }: { children: React.ReactNode }) {
         Skip to content
       </a>
       <AppNav />
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-6 pt-10 pb-24 outline-none">
+      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pt-8 pb-24 outline-none sm:px-6 sm:pt-10">
         {/* Temporary password? Nothing else renders (or loads) until it's replaced. */}
         {me.mustChangePassword ? <FirstLoginGate /> : children}
       </main>
@@ -44,7 +44,7 @@ function ShellFallback() {
   return (
     <>
       <HeaderFrame actions={<Skeleton className="h-9 w-36 rounded-lg" />} />
-      <main className="mx-auto w-full max-w-6xl px-6 pt-10" aria-busy>
+      <main className="mx-auto w-full max-w-6xl px-4 pt-8 sm:px-6 sm:pt-10" aria-busy>
         <Skeleton className="mb-3 h-3 w-20" />
         <Skeleton className="mb-10 h-9 w-56" />
         <Skeleton className="h-72 w-full rounded-xl" />

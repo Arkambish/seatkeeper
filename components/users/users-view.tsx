@@ -15,8 +15,12 @@ import { cn } from "@/lib/utils";
 import type { Role, User } from "@/lib/types";
 
 // Dialogs are only needed after a click, so keep them out of the first bundle.
-const CreateUserDialog = dynamic(() => import("./user-dialogs").then((m) => m.CreateUserDialog));
-const ResetPasswordDialog = dynamic(() => import("./user-dialogs").then((m) => m.ResetPasswordDialog));
+const CreateUserDialog = dynamic(() =>
+  import("./user-dialogs").then((m) => m.CreateUserDialog),
+);
+const ResetPasswordDialog = dynamic(() =>
+  import("./user-dialogs").then((m) => m.ResetPasswordDialog),
+);
 
 const ROLE_HELP: Record<Role, string> = {
   ADMIN: "Manages accounts only",
@@ -32,8 +36,18 @@ export function UsersView() {
   const [resetting, setResetting] = useState<User | null>(null);
   const pager = useClientPagination(users, "all");
 
-  const change = (u: User, patch: { role?: Role; isActive?: boolean }, message: string) =>
-    update.mutate({ id: u.id, ...patch }, { onSuccess: () => toast.success(message), onError: (e) => toast.error(e.message) });
+  const change = (
+    u: User,
+    patch: { role?: Role; isActive?: boolean },
+    message: string,
+  ) =>
+    update.mutate(
+      { id: u.id, ...patch },
+      {
+        onSuccess: () => toast.success(message),
+        onError: (e) => toast.error(e.message),
+      },
+    );
 
   return (
     <div className="fade-in">
@@ -49,7 +63,92 @@ export function UsersView() {
       />
 
       <Surface className="overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Phones: one card per person with the same controls. */}
+        <ul className="divide-y divide-border lg:hidden">
+          {pager.pageItems.map((u) => {
+            const self = u.id === me.id;
+            return (
+              <li
+                key={u.id}
+                className={cn(
+                  "px-4 py-4",
+                  !u.isActive && "text-muted-foreground",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "text-[15px]",
+                      u.isActive ? "text-[#111]" : "text-muted-foreground",
+                    )}
+                  >
+                    {u.name}
+                  </span>
+                  {self && <Pill tone="gray">You</Pill>}
+                  {u.mustChangePassword && (
+                    <Pill tone="yellow">Temporary password</Pill>
+                  )}
+                </div>
+                <p className="truncate text-xs text-muted-foreground">
+                  {u.email}
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <NativeSelect
+                    aria-label={`Role for ${u.name}`}
+                    value={u.role}
+                    disabled={self}
+                    onChange={(e) =>
+                      change(
+                        u,
+                        { role: e.target.value as Role },
+                        `${u.name} is now ${e.target.value.toLowerCase()}`,
+                      )
+                    }
+                    className="h-9 flex-1"
+                  >
+                    <option value="ADMIN">Admin</option>
+                    <option value="MANAGER">Manager</option>
+                    <option value="STAFF">Staff</option>
+                  </NativeSelect>
+                  <label className="flex shrink-0 items-center gap-2 text-sm text-[#2f3437]">
+                    <Switch
+                      checked={u.isActive}
+                      disabled={self}
+                      aria-label={`${u.isActive ? "Deactivate" : "Activate"} ${u.name}`}
+                      onCheckedChange={(v) =>
+                        change(
+                          u,
+                          { isActive: v },
+                          v
+                            ? `${u.name} can sign in again`
+                            : `${u.name} was deactivated`,
+                        )
+                      }
+                    />
+                    Active
+                  </label>
+                </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {ROLE_HELP[u.role]}
+                </p>
+                <div className="mt-2 flex items-center justify-between gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    Created {formatDate(u.createdAt)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setResetting(u)}
+                    className="press rounded-md px-2.5 py-1.5 text-sm text-[#2f3437] hover:bg-[#efeeeb]"
+                  >
+                    Reset password
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="hidden overflow-x-auto lg:block">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-border text-left font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
@@ -64,42 +163,81 @@ export function UsersView() {
               {pager.pageItems.map((u) => {
                 const self = u.id === me.id;
                 return (
-                  <tr key={u.id} className={cn("border-b border-border last:border-0", !u.isActive && "text-muted-foreground")}>
+                  <tr
+                    key={u.id}
+                    className={cn(
+                      "border-b border-border last:border-0",
+                      !u.isActive && "text-muted-foreground",
+                    )}
+                  >
                     <td className="px-5 py-3.5">
-                      <div className={cn(u.isActive ? "text-[#111]" : "text-muted-foreground")}>
-                        {u.name} {self && <Pill tone="gray" className="ml-1">You</Pill>}
+                      <div
+                        className={cn(
+                          u.isActive ? "text-[#111]" : "text-muted-foreground",
+                        )}
+                      >
+                        {u.name}{" "}
+                        {self && (
+                          <Pill tone="gray" className="ml-1">
+                            You
+                          </Pill>
+                        )}
                         {u.mustChangePassword && (
-                          <Pill tone="yellow" className="ml-1" >
+                          <Pill tone="yellow" className="ml-1">
                             Temporary password
                           </Pill>
                         )}
                       </div>
-                      <div className="text-xs text-muted-foreground">{u.email}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {u.email}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <NativeSelect
                         aria-label={`Role for ${u.name}`}
                         value={u.role}
                         disabled={self}
-                        title={self ? "You can't change your own role" : ROLE_HELP[u.role]}
-                        onChange={(e) => change(u, { role: e.target.value as Role }, `${u.name} is now ${e.target.value.toLowerCase()}`)}
+                        title={
+                          self
+                            ? "You can't change your own role"
+                            : ROLE_HELP[u.role]
+                        }
+                        onChange={(e) =>
+                          change(
+                            u,
+                            { role: e.target.value as Role },
+                            `${u.name} is now ${e.target.value.toLowerCase()}`,
+                          )
+                        }
                         className="h-8"
                       >
                         <option value="ADMIN">Admin</option>
                         <option value="MANAGER">Manager</option>
                         <option value="STAFF">Staff</option>
                       </NativeSelect>
-                      <div className="mt-1 text-[11px] text-muted-foreground">{ROLE_HELP[u.role]}</div>
+                      <div className="mt-1 text-[11px] text-muted-foreground">
+                        {ROLE_HELP[u.role]}
+                      </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <Switch
                         checked={u.isActive}
                         disabled={self}
                         aria-label={`${u.isActive ? "Deactivate" : "Activate"} ${u.name}`}
-                        onCheckedChange={(v) => change(u, { isActive: v }, v ? `${u.name} can sign in again` : `${u.name} was deactivated`)}
+                        onCheckedChange={(v) =>
+                          change(
+                            u,
+                            { isActive: v },
+                            v
+                              ? `${u.name} can sign in again`
+                              : `${u.name} was deactivated`,
+                          )
+                        }
                       />
                     </td>
-                    <td className="px-5 py-3.5 text-muted-foreground">{formatDate(u.createdAt)}</td>
+                    <td className="px-5 py-3.5 text-muted-foreground">
+                      {formatDate(u.createdAt)}
+                    </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
                         type="button"
@@ -128,7 +266,12 @@ export function UsersView() {
       />
 
       {creating && <CreateUserDialog onClose={() => setCreating(false)} />}
-      {resetting && <ResetPasswordDialog user={resetting} onClose={() => setResetting(null)} />}
+      {resetting && (
+        <ResetPasswordDialog
+          user={resetting}
+          onClose={() => setResetting(null)}
+        />
+      )}
     </div>
   );
 }

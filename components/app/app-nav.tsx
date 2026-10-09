@@ -48,7 +48,8 @@ export function AppNav() {
                 href={l.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex items-center gap-1.5 px-2.5 text-sm transition-colors",
+                  "relative flex min-w-11 items-center justify-center gap-1.5 px-2.5 text-sm transition-colors outline-none",
+                  "focus-visible:rounded-md focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-inset",
                   "after:absolute after:inset-x-2.5 after:-bottom-px after:h-[2px] after:rounded-full after:transition-colors",
                   active ? "text-[#111] after:bg-[#111]" : "text-muted-foreground after:bg-transparent hover:text-[#111]",
                 )}

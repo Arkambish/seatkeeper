@@ -16,7 +16,7 @@ export function HeaderFrame({
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-[#fbfbfa]/85 backdrop-blur-md supports-[backdrop-filter]:bg-[#fbfbfa]/70">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-6 sm:gap-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
         <Link href={homeHref} aria-label="Seatkeeper home" className="rounded-md outline-offset-4">
           <Logo className="max-sm:[&>span:last-child]:hidden" />
         </Link>

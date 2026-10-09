@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Armchair, ClipboardText, Hourglass, MagnifyingGlass, Prohibit } from "@phosphor-icons/react";
+import {
+  Armchair,
+  ClipboardText,
+  Hourglass,
+  MagnifyingGlass,
+  Prohibit,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -22,14 +28,25 @@ import { RegistrationPill, Surface } from "@/components/app/ui";
 import { useCancelRegistration } from "@/hooks/queries";
 import { formatDateTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { Registration, RegistrationStatus, WorkshopDetail } from "@/lib/types";
+import type {
+  Registration,
+  RegistrationStatus,
+  WorkshopDetail,
+} from "@/lib/types";
 import { WorkshopHistory } from "./workshop-history";
 
 type Tab = "ACTIVE" | "WAITLISTED" | "CANCELLED" | "ALL" | "CHANGES";
 
-const normalise = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const normalise = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
 
-const EMPTY: Record<Exclude<Tab, "CHANGES">, { icon: React.ReactElement; title: string; description: string }> = {
+const EMPTY: Record<
+  Exclude<Tab, "CHANGES">,
+  { icon: React.ReactElement; title: string; description: string }
+> = {
   ACTIVE: {
     icon: <Armchair size={20} weight="bold" />,
     title: "No one is registered yet",
@@ -38,17 +55,20 @@ const EMPTY: Record<Exclude<Tab, "CHANGES">, { icon: React.ReactElement; title: 
   WAITLISTED: {
     icon: <Hourglass size={20} weight="bold" />,
     title: "Nobody is waiting",
-    description: "When the workshop is full, people can join a waitlist and get the next free seat.",
+    description:
+      "When the workshop is full, people can join a waitlist and get the next free seat.",
   },
   CANCELLED: {
     icon: <Prohibit size={20} weight="bold" />,
     title: "No cancellations",
-    description: "Cancelled registrations are kept here with who cancelled them and why.",
+    description:
+      "Cancelled registrations are kept here with who cancelled them and why.",
   },
   ALL: {
     icon: <ClipboardText size={20} weight="bold" />,
     title: "No history yet",
-    description: "Every registration and cancellation for this workshop will be listed here.",
+    description:
+      "Every registration and cancellation for this workshop will be listed here.",
   },
 };
 
@@ -69,7 +89,8 @@ export function RegistrationsPanel({
   const [q, setQ] = useState("");
   const [confirming, setConfirming] = useState<Registration | null>(null);
 
-  const count = (s: RegistrationStatus) => registrations.filter((r) => r.status === s).length;
+  const count = (s: RegistrationStatus) =>
+    registrations.filter((r) => r.status === s).length;
   const tabs: [Tab, string, number | null][] = [
     ["ACTIVE", "Registered", count("ACTIVE")],
     ["WAITLISTED", "Waitlist", count("WAITLISTED")],
@@ -80,25 +101,38 @@ export function RegistrationsPanel({
 
   // The API returns newest first, with the true queue order as tie-breaker,
   // so reversing the waitlist gives first-in-line at the top.
-  const inTab = tab === "ALL" || tab === "CHANGES" ? registrations : registrations.filter((r) => r.status === tab);
+  const inTab =
+    tab === "ALL" || tab === "CHANGES"
+      ? registrations
+      : registrations.filter((r) => r.status === tab);
   const ordered = tab === "WAITLISTED" ? [...inTab].reverse() : inTab;
 
   // Queue position is fixed by the full waitlist, not by what's on screen.
   const queuePosition = useMemo(() => {
-    const waiting = registrations.filter((r) => r.status === "WAITLISTED").reverse();
+    const waiting = registrations
+      .filter((r) => r.status === "WAITLISTED")
+      .reverse();
     return new Map(waiting.map((r, i) => [r.id, i + 1]));
   }, [registrations]);
 
   // Search by name or email, ignoring case and accents.
   const needle = normalise(q.trim());
   const rows = needle
-    ? ordered.filter((r) => normalise(r.attendeeName).includes(needle) || r.attendeeEmail.includes(needle))
+    ? ordered.filter(
+        (r) =>
+          normalise(r.attendeeName).includes(needle) ||
+          r.attendeeEmail.includes(needle),
+      )
     : ordered;
   const pager = useClientPagination(rows, `${tab}|${needle}`);
 
   return (
     <section className="mt-10">
-      <div role="tablist" aria-label="Registrations" className="mb-4 flex flex-wrap gap-1 border-b border-border">
+      <div
+        role="tablist"
+        aria-label="Registrations"
+        className="scroll-strip -mx-4 mb-4 flex gap-1 border-b border-border px-4 sm:mx-0 sm:px-0"
+      >
         {tabs.map(([value, label, n]) => (
           <button
             key={value}
@@ -107,12 +141,18 @@ export function RegistrationsPanel({
             aria-selected={tab === value}
             onClick={() => setTab(value)}
             className={cn(
-              "-mb-px border-b-2 px-3 pt-1 pb-2.5 text-sm transition-colors",
-              tab === value ? "border-[#111] text-[#111]" : "border-transparent text-muted-foreground hover:text-[#111]",
+              "-mb-px shrink-0 border-b-2 px-3 pt-1 pb-2.5 text-sm whitespace-nowrap transition-colors",
+              tab === value
+                ? "border-[#111] text-[#111]"
+                : "border-transparent text-muted-foreground hover:text-[#111]",
             )}
           >
             {label}
-            {n !== null && <span className="ml-1.5 font-mono text-xs text-muted-foreground tabular-nums">{n}</span>}
+            {n !== null && (
+              <span className="ml-1.5 font-mono text-xs text-muted-foreground tabular-nums">
+                {n}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -156,8 +196,9 @@ export function RegistrationsPanel({
                 title="No one matches your search"
                 description={
                   <>
-                    {tab === "ALL" ? "No attendee" : "Nobody in this tab"} matches &ldquo;{q.trim()}&rdquo;. Check the
-                    spelling{tab === "ALL" ? "." : ", or look in Full history."}
+                    {tab === "ALL" ? "No attendee" : "Nobody in this tab"}{" "}
+                    matches &ldquo;{q.trim()}&rdquo;. Check the spelling
+                    {tab === "ALL" ? "." : ", or look in Full history."}
                   </>
                 }
                 action={
@@ -170,64 +211,158 @@ export function RegistrationsPanel({
               <EmptyState size="sm" {...EMPTY[tab]} />
             )
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
-                    {tab === "WAITLISTED" && <th className="w-12 px-5 py-3 font-normal">#</th>}
-                    <th className="px-5 py-3 font-normal">Attendee</th>
-                    <th className="px-5 py-3 font-normal">Status</th>
-                    <th className="px-5 py-3 font-normal">Registered</th>
-                    <th className="px-5 py-3 font-normal">Cancelled</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {pager.pageItems.map((r) => {
-                    const pending = r.id.startsWith("optimistic-");
-                    return (
-                      <tr key={r.id} className={cn("border-b border-border last:border-0", pending && "row-pending")}>
-                        {tab === "WAITLISTED" && (
-                          <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{queuePosition.get(r.id) ?? "–"}</td>
+            <>
+              {/* Phones: stacked cards instead of a wide table. */}
+              <ul className="divide-y divide-border lg:hidden">
+                {pager.pageItems.map((r) => {
+                  const pending = r.id.startsWith("optimistic-");
+                  return (
+                    <li
+                      key={r.id}
+                      className={cn("px-4 py-4", pending && "row-pending")}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[15px] text-[#111]">
+                            {tab === "WAITLISTED" && (
+                              <span className="mr-1.5 font-mono text-xs text-muted-foreground">
+                                #{queuePosition.get(r.id) ?? "–"}
+                              </span>
+                            )}
+                            {r.attendeeName}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {r.attendeeEmail}
+                          </p>
+                        </div>
+                        <RegistrationPill status={r.status} />
+                      </div>
+                      <dl className="mt-2.5 grid gap-1 text-xs">
+                        <div className="flex gap-1.5">
+                          <dt className="text-muted-foreground">Registered</dt>
+                          <dd className="text-[#2f3437]">
+                            {formatDateTime(r.registeredAt)} by{" "}
+                            {r.registeredBy.name}
+                          </dd>
+                        </div>
+                        {r.promotedAt && (
+                          <div className="text-[var(--pastel-green-fg)]">
+                            From waitlist {formatDateTime(r.promotedAt)}
+                          </div>
                         )}
-                        <td className="px-5 py-3.5">
-                          <div className="text-[#111]">{r.attendeeName}</div>
-                          <div className="text-xs text-muted-foreground">{r.attendeeEmail}</div>
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <RegistrationPill status={r.status} />
-                        </td>
-                        <td className="px-5 py-3.5">
-                          <Who at={r.registeredAt} by={r.registeredBy.name} />
-                          {r.promotedAt && <div className="mt-0.5 text-xs text-[var(--pastel-green-fg)]">From waitlist {formatDateTime(r.promotedAt)}</div>}
-                        </td>
-                        <td className="px-5 py-3.5">
-                          {r.cancelledAt && r.cancelledBy ? (
-                            <>
-                              <Who at={r.cancelledAt} by={r.cancelledBy.name} />
-                              {r.cancelReason && <div className="mt-0.5 text-xs text-muted-foreground italic">“{r.cancelReason}”</div>}
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
+                        {r.cancelledAt && r.cancelledBy && (
+                          <div className="flex gap-1.5">
+                            <dt className="text-muted-foreground">Cancelled</dt>
+                            <dd className="text-[#2f3437]">
+                              {formatDateTime(r.cancelledAt)} by{" "}
+                              {r.cancelledBy.name}
+                              {r.cancelReason && (
+                                <span className="block text-muted-foreground italic">
+                                  “{r.cancelReason}”
+                                </span>
+                              )}
+                            </dd>
+                          </div>
+                        )}
+                      </dl>
+                      {canCancel && r.status !== "CANCELLED" && !pending && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirming(r)}
+                          className="press mt-3 inline-flex h-9 items-center rounded-md border border-[var(--pastel-red-fg)]/20 px-3 text-sm text-[var(--pastel-red-fg)] hover:bg-[var(--pastel-red)]"
+                        >
+                          Cancel registration
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+                      {tab === "WAITLISTED" && (
+                        <th className="w-12 px-5 py-3 font-normal">#</th>
+                      )}
+                      <th className="px-5 py-3 font-normal">Attendee</th>
+                      <th className="px-5 py-3 font-normal">Status</th>
+                      <th className="px-5 py-3 font-normal">Registered</th>
+                      <th className="px-5 py-3 font-normal">Cancelled</th>
+                      <th className="px-5 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pager.pageItems.map((r) => {
+                      const pending = r.id.startsWith("optimistic-");
+                      return (
+                        <tr
+                          key={r.id}
+                          className={cn(
+                            "border-b border-border last:border-0",
+                            pending && "row-pending",
                           )}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          {canCancel && r.status !== "CANCELLED" && !pending && (
-                            <button
-                              type="button"
-                              onClick={() => setConfirming(r)}
-                              className="press rounded-md px-2.5 py-1 text-sm text-[var(--pastel-red-fg)] hover:bg-[var(--pastel-red)]"
-                            >
-                              Cancel
-                            </button>
+                        >
+                          {tab === "WAITLISTED" && (
+                            <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">
+                              {queuePosition.get(r.id) ?? "–"}
+                            </td>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <td className="px-5 py-3.5">
+                            <div className="text-[#111]">{r.attendeeName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {r.attendeeEmail}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <RegistrationPill status={r.status} />
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <Who at={r.registeredAt} by={r.registeredBy.name} />
+                            {r.promotedAt && (
+                              <div className="mt-0.5 text-xs text-[var(--pastel-green-fg)]">
+                                From waitlist {formatDateTime(r.promotedAt)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            {r.cancelledAt && r.cancelledBy ? (
+                              <>
+                                <Who
+                                  at={r.cancelledAt}
+                                  by={r.cancelledBy.name}
+                                />
+                                {r.cancelReason && (
+                                  <div className="mt-0.5 text-xs text-muted-foreground italic">
+                                    “{r.cancelReason}”
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {canCancel &&
+                              r.status !== "CANCELLED" &&
+                              !pending && (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirming(r)}
+                                  className="press rounded-md px-2.5 py-1 text-sm text-[var(--pastel-red-fg)] hover:bg-[var(--pastel-red)]"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </Surface>
       )}
@@ -286,7 +421,9 @@ function CancelDialog({
       {
         onSuccess: ({ promoted }) =>
           toast.success(`${name}'s registration was cancelled`, {
-            description: promoted ? "The seat went to the next person on the waitlist." : "The seat is free again.",
+            description: promoted
+              ? "The seat went to the next person on the waitlist."
+              : "The seat is free again.",
           }),
         onError: (e) => toast.error(e.message),
       },
@@ -296,10 +433,15 @@ function CancelDialog({
   };
 
   return (
-    <AlertDialog open={!!registration} onOpenChange={(open) => !open && onClose()}>
+    <AlertDialog
+      open={!!registration}
+      onOpenChange={(open) => !open && onClose()}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle className="font-display text-xl font-normal">Cancel {registration?.attendeeName}&apos;s registration?</AlertDialogTitle>
+          <AlertDialogTitle className="font-display text-xl font-normal">
+            Cancel {registration?.attendeeName}&apos;s registration?
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {registration?.status === "WAITLISTED"
               ? "They will be removed from the waitlist."
@@ -318,7 +460,10 @@ function CancelDialog({
         />
         <AlertDialogFooter>
           <AlertDialogCancel>Keep registration</AlertDialogCancel>
-          <AlertDialogAction onClick={confirm} className="bg-[var(--pastel-red-fg)] text-white hover:bg-[#862826]">
+          <AlertDialogAction
+            onClick={confirm}
+            className="bg-[var(--pastel-red-fg)] text-white hover:bg-[#862826]"
+          >
             Cancel registration
           </AlertDialogAction>
         </AlertDialogFooter>

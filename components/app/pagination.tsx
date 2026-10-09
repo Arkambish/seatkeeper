@@ -65,7 +65,7 @@ export function Pagination({
             aria-label="Rows per page"
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="h-8 text-[13px]"
+            className="h-8 sm:text-[13px]"
           >
             {PAGE_SIZES.map((s) => (
               <option key={s} value={s}>

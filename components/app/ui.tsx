@@ -95,7 +95,7 @@ export function NativeSelect({ className, ...props }: React.ComponentProps<"sele
   return (
     <select
       className={cn(
-        "h-9 rounded-md border border-input bg-white pr-8 pl-2.5 text-sm text-foreground transition-colors outline-none",
+        "h-9 rounded-md border border-input bg-white pr-8 pl-2.5 text-base text-foreground sm:text-sm transition-colors outline-none",
         "appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 256 256%22><path fill=%22%23787774%22 d=%22M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z%22/></svg>')] bg-[length:12px] bg-[right_10px_center] bg-no-repeat",
         "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 disabled:opacity-50 aria-invalid:border-destructive",
         className,

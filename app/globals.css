@@ -114,6 +114,8 @@
   body {
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    /* Pressables have their own .press feedback; drop the grey iOS flash. */
+    -webkit-tap-highlight-color: transparent;
   }
   ::selection {
     background: var(--pastel-blue);
@@ -152,6 +154,16 @@
     opacity: 0;
     transform: translateY(4px);
   }
+}
+
+/* Chip and tab rows that scroll sideways on phones instead of wrapping. */
+.scroll-strip {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.scroll-strip::-webkit-scrollbar {
+  display: none;
 }
 
 /* Row that was just added optimistically. */
