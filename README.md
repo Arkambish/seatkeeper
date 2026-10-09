@@ -123,6 +123,13 @@ Node is pinned to 24.x through `engines` in `package.json`.
   - Date presets: Upcoming, This week, Next 7 days, All dates, or a custom range.
   - Filters: status, location, "has free seats" and text search.
   - The filters live in the URL, so a view can be shared or bookmarked.
+- **Public website (no sign-in):**
+  - `/` is a landing page with upcoming workshops by category, live seat availability, how booking works and the studios.
+  - `/classes/[id]` shows each workshop's details and a "Call to book" panel.
+  - It's read-only by design: bookings still go through the front desk, as the brief describes, so the capacity rule has one door.
+  - It never shows attendee names or emails.
+  - Pages are cached on the server and refreshed in the background after every staff booking or edit.
+  - Public pages are indexable, with schema.org Event data, a sitemap and robots rules. The staff app stays `noindex`.
 - **Full catalogue management for managers:**
   - **Workshops:** create, edit and duplicate (same slot one week later). Cancel and reopen from a row menu or the workshop page.
   - **Deleting workshops:** only allowed if nobody ever registered, so booking history is never lost. Otherwise the app offers "Cancel workshop" instead.
@@ -187,3 +194,15 @@ prisma/                 schema, migration (with CHECK constraints) and seed
 tests/                  concurrency and RBAC tests (Vitest, real Postgres)
 scripts/hammer.ts       live HTTP concurrency demo
 ```
+
+---
+
+## Public site content
+
+- **Front-desk contact:** the phone number, email and opening hours in `lib/brand.ts` are placeholders. Replace them before launch.
+- **Categories:** each workshop's category comes from its code prefix (`POT-`, `CODE-`, `FIT-`, `ART-`). New prefixes can be added in `lib/catalogue.ts`.
+- **Photos:** stored in `public/images/workshops/`, from Unsplash under the free [Unsplash License](https://unsplash.com/license):
+  - [pottery](https://unsplash.com/photos/BFBikYWtA9c) and [glazing](https://unsplash.com/photos/miTlsTvoLVg)
+  - [coding](https://unsplash.com/photos/kp7qkHTgSKc)
+  - [fitness](https://unsplash.com/photos/3RnkZpDqsEI) and [seated stretching](https://unsplash.com/photos/kB4FXX1KXhQ)
+  - [art](https://unsplash.com/photos/EiORIO-66Ow)

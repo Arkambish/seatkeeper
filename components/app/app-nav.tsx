@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { can } from "@/lib/auth/permissions";
+import { can, homePathFor } from "@/lib/auth/permissions";
 import { apiFetch } from "@/lib/query/api";
 import { APP_TIMEZONE } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,7 @@ export function AppNav() {
 
   return (
     <HeaderFrame
+      homeHref={homePathFor(me.role)}
       nav={
         <nav aria-label="Main" className="flex h-full items-stretch gap-1">
           {links.map((l) => {

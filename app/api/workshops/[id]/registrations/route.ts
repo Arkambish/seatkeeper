@@ -1,3 +1,4 @@
+import { invalidatePublicCatalogue } from "@/lib/public-cache";
 import { json, parseBody, parseQuery, withAuth } from "@/lib/api/handler";
 import { listRegistrations, registerAttendee } from "@/lib/services/registrations";
 import { uuid } from "@/lib/validation/common";
@@ -10,5 +11,7 @@ export const GET = withAuth<{ id: string }>("workshops:read", async ({ req, para
 
 export const POST = withAuth<{ id: string }>("registrations:write", async ({ req, user, params }) => {
   const input = await parseBody(req, registerAttendeeSchema);
-  return json(await registerAttendee(uuid.parse(params.id), input, user), 201);
+  const registration = await registerAttendee(uuid.parse(params.id), input, user);
+  invalidatePublicCatalogue(); // seats changed
+  return json(registration, 201);
 });

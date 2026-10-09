@@ -5,6 +5,16 @@ export const BRAND = {
   organisation: "Community Training Centre",
   description:
     "Register attendees, manage workshop seats and keep a full history of every booking and cancellation, without ever overbooking.",
+  /**
+   * Front-desk contact shown on the public site. PLACEHOLDER values: replace
+   * with the centre's real number, address and hours before launch.
+   */
+  contact: {
+    phone: "+94 11 250 4410",
+    phoneHref: "tel:+94112504410",
+    email: "frontdesk@example.com",
+    hours: "Monday to Saturday, 8.30am to 6pm",
+  },
   /** Amber: the "last seat" accent used in the mark. */
   accent: "#956400",
   ink: "#111111",

@@ -1,5 +1,5 @@
 import { TZDate } from "@date-fns/tz";
-import { addDays, format, startOfWeek } from "date-fns";
+import { addDays, startOfWeek } from "date-fns";
 
 /**
  * All three locations share one timezone. Formatting with an explicit zone on
@@ -8,14 +8,35 @@ import { addDays, format, startOfWeek } from "date-fns";
  */
 export const APP_TIMEZONE = process.env.NEXT_PUBLIC_APP_TIMEZONE || "UTC";
 
-const inZone = (iso: string | Date) => new TZDate(new Date(iso).getTime(), APP_TIMEZONE);
+// Formatting uses Intl (deterministic, no hidden `new Date()`), so it is safe in
+// prerendered pages and gives identical output on the server and in the browser.
+const fmt = (opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-GB", { timeZone: APP_TIMEZONE, ...opts });
+const dateFmt = fmt({ weekday: "short", day: "numeric", month: "short" });
+const timeFmt = fmt({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const dateTimeFmt = fmt({ weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const partsFmt = fmt({
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 
-export const formatDateTime = (iso: string) => format(inZone(iso), "EEE d MMM yyyy, HH:mm");
-export const formatDate = (iso: string) => format(inZone(iso), "EEE d MMM");
-export const formatTime = (iso: string) => format(inZone(iso), "HH:mm");
+const at = (iso: string) => new Date(iso);
+
+/** "Sat 10 Oct" */
+export const formatDate = (iso: string) => dateFmt.format(at(iso)).replace(",", "");
+/** "18:30" */
+export const formatTime = (iso: string) => timeFmt.format(at(iso));
+/** "Sat 10 Oct 2026, 18:30" */
+export const formatDateTime = (iso: string) => `${dateTimeFmt.format(at(iso)).replace(",", "")}, ${formatTime(iso)}`;
 
 /** ISO instant → value for <input type="datetime-local"> in the centre's timezone. */
-export const toLocalInput = (iso: string) => format(inZone(iso), "yyyy-MM-dd'T'HH:mm");
+export function toLocalInput(iso: string) {
+  const p = Object.fromEntries(partsFmt.formatToParts(at(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
 
 /** <input type="datetime-local"> value (centre's timezone) → ISO instant. */
 export function fromLocalInput(value: string): string {

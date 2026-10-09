@@ -167,3 +167,24 @@
     animation: none;
   }
 }
+
+/*
+ * Public site: cards rise in as they scroll into view. CSS scroll-driven
+ * animation (no JS, no scroll listeners), progressive enhancement only, and
+ * off entirely for reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
