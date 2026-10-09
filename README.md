@@ -1,10 +1,75 @@
 # Seatkeeper
 
-Seatkeeper is a full-stack workshop registration app for a community training centre. Front-desk staff use it to register attendees for workshops that have a limited number of seats. It is built with Next.js (App Router) and PostgreSQL, using Prisma and TanStack Query.
+**Workshop Registration Service: Full Stack Developer Technical Assessment (Kenora)**
+
+| | |
+|---|---|
+| **Live demo** | https://seatkeeper-eight.vercel.app |
+| **Source code** | https://github.com/Arkambish/seatkeeper |
+| **Written document** | [DESIGN.md](DESIGN.md) |
+| **Sign in** | `admin@example.com` / `Admin123!` (also `manager@` / `Manager123!`, `staff@` / `Staff123!`) |
+
+Seatkeeper is a full-stack app for a community training centre. Front-desk staff register attendees for workshops with a limited number of seats, managers schedule workshops, and admins manage staff accounts. It is built with Next.js (App Router) and PostgreSQL, using Prisma and TanStack Query.
 
 The core rule: **a workshop can never hold more active registrations than its capacity, even when several people book the last seat at the same moment.**
 
-See [DESIGN.md](DESIGN.md) for design decisions, trade-offs and how over-registration is prevented.
+---
+
+## What the challenge asked for, and where it is
+
+### 1. Staff access and permissions
+
+| Requirement | Where / how | Proven by |
+|---|---|---|
+| Three roles: Admin, Manager, Staff | `lib/auth/permissions.ts`, a single permission matrix | `tests/rbac.test.ts` |
+| No public signup; the first Admin is seeded; Admins create every other account | `prisma/seed.ts`; **Accounts** page (`/users`); there is no signup route | `tests/password.test.ts` |
+| "Anything not marked must be refused by the backend" | `withAuth(permission)` wraps **every** API route: 401 without a session, 403 for the wrong role | Full role × endpoint matrix in `tests/rbac.test.ts` and `tests/crud.test.ts` |
+
+### 2. Workshop catalogue
+
+| Requirement | Where / how |
+|---|---|
+| Code, title, instructor, date & time, capacity, status | `prisma/schema.prisma` (`Workshop`); create and edit at `/workshops/new` and `/workshops/[id]/edit` (Manager) |
+| "Anything else worth tracking" | Location (with location management), end time, description, created/edited by, live seat counter, full change history |
+
+### 3. Registrations
+
+| Requirement | Where / how | Proven by |
+|---|---|---|
+| Attendee = name + email typed by staff (no accounts) | Register form on each workshop page | |
+| Cancelling frees the seat and never deletes the record | `POST /api/registrations/:id/cancel`; status becomes `CANCELLED` with who, when and why | `tests/concurrency.test.ts` |
+| Full history: who registered or cancelled, and when | **Full history** tab on every workshop | |
+| **Never more active registrations than capacity, even at the same moment** | One atomic SQL statement plus a database `CHECK` constraint (`lib/services/registrations.ts`); see [DESIGN.md](DESIGN.md) | 50 parallel requests for 20 seats book exactly 20 (`tests/concurrency.test.ts`); `npm run hammer` over HTTP |
+
+### 4. Finding workshops
+
+| Requirement | Where / how |
+|---|---|
+| By date range, status, or seats still available | `/workshops`: This week, Next 7 days, Custom range; status; "Has free seats"; plus studio and text search |
+| "Which workshops this week still have seats" | One click: **This week, with free seats** |
+
+### Bonus (optional): both done
+
+| Bonus | Where / how |
+|---|---|
+| Audit trail (workshop edits, account and role changes) | Field-level before/after diffs. **Workshop changes** tab per workshop; **Activity** page for Admins |
+| Waitlist that offers the next seat when one is freed | Join when full; promotion is automatic, first come first served, in the same transaction as the cancellation |
+
+### Deliverables
+
+| Deliverable | Status |
+|---|---|
+| Source code (one repo, backend + frontend) | https://github.com/Arkambish/seatkeeper |
+| Live deployment (optional) | https://seatkeeper-eight.vercel.app (Vercel + Neon Postgres) |
+| Setup instructions to run locally without asking | [Quick start](#quick-start) below; seeded Admin login and sample workshops included |
+| One-page document: stack, design decisions, trade-offs, assumptions, over-registration, what was skipped | [DESIGN.md](DESIGN.md) |
+
+### Beyond the brief
+
+- Temporary passwords that must be changed at first sign-in.
+- Manager tools: delete (only if never registered), cancel and reopen, and duplicate workshops.
+- Pagination, empty states, and attendee search on each workshop.
+- A read-only public website listing upcoming workshops (`/`).
 
 ---
 
@@ -74,7 +139,7 @@ The repo is ready to import as-is. `vercel.json` pins functions to `sin1` (Singa
    |---|---|
    | `DATABASE_URL` | Neon **pooled** URL (`…-pooler…`) |
    | `DIRECT_URL` | Neon **direct** URL (no `-pooler`), used for migrations |
-   | `NEXT_PUBLIC_APP_URL` | The deployment URL, e.g. `https://seatkeeper.vercel.app` |
+   | `NEXT_PUBLIC_APP_URL` | Optional. Your custom domain; on Vercel the production URL is detected automatically |
    | `NEXT_PUBLIC_APP_TIMEZONE` | The centre's timezone, e.g. `Asia/Colombo` |
    | `NEXT_PUBLIC_SHOW_DEMO_ACCOUNTS` | `true` to show the demo-login buttons for reviewers (optional) |
 

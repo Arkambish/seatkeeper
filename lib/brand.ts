@@ -21,5 +21,12 @@ export const BRAND = {
   paper: "#fbfbfa",
 } as const;
 
-/** Absolute base URL for metadata (Open Graph etc.). */
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+/**
+ * Absolute base URL for metadata (Open Graph, sitemap, structured data).
+ * NEXT_PUBLIC_APP_URL wins; on Vercel the production domain is picked up
+ * automatically; locally it falls back to localhost.
+ */
+export const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "") ||
+  "http://localhost:3000";

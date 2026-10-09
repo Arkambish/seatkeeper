@@ -48,3 +48,6 @@ next-env.d.ts
 .agents/
 .claude/
 skills-lock.json
+
+# Submission documents (kept locally, not in the repo)
+docs/
